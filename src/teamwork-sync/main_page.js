@@ -81,20 +81,12 @@ const container = document.getElementById("root");
 
 const app = ReactDOM.render(<TeamworkSync />, container);
 
-$("#load_csv").click(async () => {
-  const filePath = await window.electronAPI.open_file_dialog();
-  $("#filePath").text(filePath);
-});
-
 document.addEventListener("drop", (event) => {
   event.preventDefault();
   event.stopPropagation();
 
-  for (const f of event.dataTransfer.files) {
-    // Using the path attribute to get absolute file path
-    console.log("File Path of dragged files: ", f.path);
-    $("#filePath").text(f.path);
-    window.electronAPI.open_file_drop(f.path);
+  if (event.dataTransfer.files.length > 0) {
+    window.electronAPI.open_file_drop(event.dataTransfer.files[0].path);
   }
 });
 
