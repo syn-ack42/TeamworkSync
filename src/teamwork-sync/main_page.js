@@ -1,13 +1,41 @@
-
-
-class DataTable extends React.Component {
+class TeamworkSync extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      table_data: [],
+      table: {tbl_data:[], tbl_errors: []},
+      file_path: null
     };
   }
 
+  set_table(data) {
+      var s = this.state
+      s.table = data || {tbl_data:[], tbl_errors: []};
+      this.setState(s)
+  }
+
+  async load_csv() {
+    const filePath = await window.electronAPI.open_file_dialog();
+    var s = this.state;
+    s.file_path = filePath || null
+    this.setState(s)
+  }
+
+  render() {
+    return (
+      <div>
+        <div className="load-section">
+          <button type="button" onClick={() => {this.load_csv()}}>
+            Load CSV
+          </button>
+          <strong>{this.state.file_path || ""}</strong>
+        </div>
+        <DataTable table={this.state.table} />
+      </div>
+    );
+  }
+}
+
+class DataTable extends React.Component {
   render() {
     return (
       <table className="data-table">
@@ -34,13 +62,13 @@ class DataTable extends React.Component {
           </tr>
         </thead>
         <tbody>
-          {this.state.table_data.map((row) => (
-            <tr>
-              <td>{row.row}</td>
-              <td>{row.name}</td>
-              <td>{row.start}</td>
-              <td>{row.end}</td>
-              <td>{row.task}</td>
+          {this.props.table.tbl_data.map((row) => (
+            <tr key={row.row.value}>
+              <td>{row.row.value}</td>
+              <td>{row.name.value}</td>
+              <td>{row.start.value}</td>
+              <td>{row.end.value}</td>
+              <td>{row.task.value}</td>
             </tr>
           ))}
         </tbody>
@@ -51,12 +79,7 @@ class DataTable extends React.Component {
 
 const container = document.getElementById("root");
 
-const tbl = ReactDOM.render(<DataTable id="dtable" />, container);
-
-function set_errors(errs) {
-  $("#errors").text(errs);
-}
-
+const app = ReactDOM.render(<TeamworkSync />, container);
 
 $("#load_csv").click(async () => {
   const filePath = await window.electronAPI.open_file_dialog();
@@ -81,40 +104,5 @@ document.addEventListener("dragover", (e) => {
 });
 
 window.electronAPI.set_table((event, value) => {
-  tbl.setState({ table_data: value });
-
-  return;
-
-
-
-  $("#data_table").html("");
-  if (value.length == 0) {
-    return;
-  }
-  var t = $("<table>");
-  var hd = $("<tr>");
-  const headers = [];
-  for (const k in value[0]) {
-    headers.push(k);
-    hd.append($("<th>").html(k));
-  }
-  t.append(hd);
-  var i = 0;
-  $.each(value, (r) => {
-    const row = value[r];
-    const tr = $("<tr>").attr("id", row["row"]);
-    for (const h in headers) {
-      tr.append(
-        $("<td>")
-          .html(row[headers[h]])
-          .attr("id", `${row["row"]}_${headers[h]}`)
-      );
-    }
-    t.append(tr);
-  });
-  $("#data_table").append(t);
-});
-
-window.electronAPI.set_errors((event, value) => {
-  $("#errors").text(JSON.stringify(value));
+  app.set_table(value);
 });

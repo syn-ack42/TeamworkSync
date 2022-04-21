@@ -62,45 +62,53 @@ function structure_raw_data(raw) {
   var rnum = 0;
   return raw.map((r) => {
     var t = {
-      row: rnum++,
-      name: r[config.winame_col],
-      start: r[config.start_col],
-      end: r[config.end_col],
-      task: r[config.task_col],
-      note: r[config.notes_col],
+      row: {value: rnum++, error: null},
+      name: {value: [config.winame_col], error: null},
+      start: {value: r[config.start_col], error: null},
+      end: {value: r[config.end_col], error: null},
+      task: {value: r[config.task_col], error: null},
+      note: {value: r[config.notes_col], error: null}
     };
+
+    
+
     return t;
   });
 }
 
+
 function check_mandatory_cols(raw) {
   const errs = [];
   if (raw.length <= 0) {
-    errs.push({ severity: "ERROR", message: `File empty or not a csv file` });
+    errs.push({ severity: "ERROR", cols: null, message: `File empty or not a csv file` });
     return errs;
   }
 
   if (raw[0][config.start_col] == undefined) {
     errs.push({
       severity: "ERROR",
+      cols: ["start"],
       message: `Start time column '${config.start_col}' missing`,
     });
   }
   if (raw[0][config.end_col] == undefined) {
     errs.push({
       severity: "ERROR",
+      cols: ["end"],
       message: `End time column '${config.end_col}' missing`,
     });
   }
   if (raw[0][config.task_col] == undefined) {
     errs.push({
       severity: "ERROR",
+      cols: ["task"],
       message: `Teamwork task id column '${config.task_col}' missing`,
     });
   }
   if (raw[0][config.notes_col] == undefined) {
     errs.push({
       severity: "WARNING",
+      cols: ["note"],
       message: `Notes column '${config.notes_col}' missing`,
     });
   }
@@ -120,16 +128,15 @@ function open_csv(filePath) {
     })
     .on("error", (err) => {
       const e = [
-        { severity: "ERROR", message: `Failure to read file '${err.message}'` },
+        { severity: "ERROR", cols: null, message: `Failure to read file '${err.message}'` },
       ];
-      mainWindow.webContents.send("set-error-data", e);
+      mainWindow.webContents.send("set-table-data", {tbl_data: null, tbl_errors: e});
       console.log(err);
     });
 }
 
 function process_csv_data(raw) {
-  var errs = check_mandatory_cols(raw);
+  const col_errs = check_mandatory_cols(raw);
   var d = structure_raw_data(raw);
-  mainWindow.webContents.send("set-table-data", d);
-  mainWindow.webContents.send("set-error-data", errs);
+  mainWindow.webContents.send("set-table-data", {tbl_data: d, tbl_errors: col_errs});
 }
