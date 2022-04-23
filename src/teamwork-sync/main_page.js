@@ -4,15 +4,33 @@ class TeamworkSync extends React.Component {
     this.state = {
       table: { tbl_data: [], tbl_errors: [] },
       file_path: null,
-      config: { teamwork_token: "foo" },
+      config: {
+        base_url: "https://aspiresoftware.eu.teamwork.com",
+        token: "fds",
+        winame_col: "Work Item",
+        start_col: "Start",
+        end_col: "End",
+        task_col: "TeamworkTask",
+        notes_col: "Notes",
+        date_pattern: "dd.MM.yyyy HH:mm:ss"
+      }
     };
   }
 
-  handle_config_change(conf) {
+  handle_config_save() {
+    window.electronAPI.store_config(this.state.config);
+  }
+
+  update_conf_key(key, value) {
     var s = this.state;
-    s.config.teamwork_token = conf;
+    s.config[key] = value;
     this.setState(s);
-    console.log(JSON.stringify(conf));
+  }
+
+  update_config(conf) {
+    var s = this.state;
+    s.config = conf;
+    this.setState(s);
   }
 
   set_table(data) {
@@ -61,7 +79,8 @@ class TeamworkSync extends React.Component {
         <div className="config-menu">
           <ConfigMenu
             config={this.state.config}
-            onConfChange={(conf) => this.handle_config_change(conf)}
+            onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
+            onConfSave={(conf) => this.handle_config_save(conf)}
           />
         </div>
       </div>
@@ -185,45 +204,44 @@ class DataTableCell extends React.Component {
 }
 
 class ConfigMenu extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      config: { teamwork_token: this.props.config.teamwork_token },
-    };
-  }
-
-  update_conf_value(key, value) {
-    var s = this.state;
-    s["config"][key] = value;
-    this.setState(s);
-  }
-
-  save_config() {
-    this.props.onConfChange(this.state.config);
-  }
 
   render() {
+
     return (
       <div>
         <h2><center>Configuration</center></h2>
-        <div>
-          <span>Teamwork Token: </span>
-          <input
-            id="TeamworkToken"
-            value={this.state.config.teamwork_token}
-            onChange={(e) =>
-              this.update_conf_value("teamwork_token", e.target.value)
-            }
-          />
-        </div>
+        <ConfigOption text="Url" id="base_url" value={this.props.config.base_url} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Teamwork Token" id="token" value={this.props.config.token} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Work Item Column" id="winame_col" value={this.props.config.winame_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Start Time Column" id="start_col" value={this.props.config.start_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="End Time Column" id="end_col" value={this.props.config.end_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Task ID Column" id="task_col" value={this.props.config.task_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Notes Column" id="notes_col" value={this.props.config.notes_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <ConfigOption text="Date-Time Pattern" id="date_pattern" value={this.props.config.date_pattern} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
         <div align="center">
-          <button onClick={() => this.save_config()}>Save</button>
+          <button onClick={() => this.props.onConfSave()}>Save</button>
         </div>
       </div>
     );
   }
 }
 
+class ConfigOption extends React.Component {
+  render() {
+    return (
+      <div className="conf-option">
+        <span className="conf-label">{this.props.text}</span>
+        <input className="conf-text-input"
+          id={this.props.id}
+          value={this.props.value}
+          onChange={(e) =>
+            this.props.onChange(this.props.id, e.target.value)
+          }
+        />
+      </div>
+    )
+  }
+}
 const container = document.getElementById("root");
 
 const app = ReactDOM.render(<TeamworkSync />, container);
@@ -244,4 +262,8 @@ document.addEventListener("dragover", (e) => {
 
 window.electronAPI.register_set_table((event, value) => {
   app.set_table(value);
+});
+
+window.electronAPI.register_set_config((event, value) => {
+  app.update_config(value)
 });

@@ -2,10 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
-const crypto = require("crypto");
 const parse = require('date-fns/parse')
 
-var config = {
+
+const default_config = {
   base_url: "https://aspiresoftware.eu.teamwork.com",
   token: "fds",
   winame_col: "Work Item",
@@ -14,9 +14,25 @@ var config = {
   task_col: "TeamworkTask",
   notes_col: "Notes",
   date_pattern: "dd.MM.yyyy HH:mm:ss"
-};
+}
 
 var mainWindow;
+
+const userDataFile = path.join(app.getPath('userData'), 'config.json');
+var config = parseConfFile(userDataFile, default_config)
+
+function parseConfFile(filePath, defaults) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath));
+  } catch(error) {
+    return defaults;
+  }
+}
+
+function storeConfigFile(filename, conf) {
+  const c =  Object.assign(default_config, conf)
+  fs.writeFileSync(filename, JSON.stringify(c));
+}
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -29,19 +45,32 @@ const createWindow = () => {
     },
   });
 
+
   mainWindow.loadFile("index.html");
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.send("set-config", config);
+  })
+  
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+
+  
 };
+
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
 app.whenReady().then(() => {
-  ipcMain.handle("open-file-dialog", file_open_dialog);
+  ipcMain.handle("open-file-dialog", open_file_dialog);
   ipcMain.handle("open-file-drop", (event, filename) => {
     open_csv(filename);
+  });
+  ipcMain.handle("store-config", (event, conf) => {
+    storeConfigFile(userDataFile, conf);
+    config = parseConfFile(userDataFile, config)
+    mainWindow.webContents.send("set-config", config);
   });
   createWindow();
 
@@ -50,7 +79,7 @@ app.whenReady().then(() => {
   });
 });
 
-async function file_open_dialog() {
+async function open_file_dialog() {
   const { canceled, filePaths } = await dialog.showOpenDialog();
   if (canceled) {
     return;
