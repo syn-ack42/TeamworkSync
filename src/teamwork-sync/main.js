@@ -3,6 +3,7 @@ const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
 const parse = require('date-fns/parse')
+const axios = require('axios');
 
 
 const default_config = {
@@ -89,7 +90,7 @@ async function open_file_dialog() {
   }
 }
 
-function structure_raw_data(raw) {
+function structure_raw_data(raw, tasks) {
   var rnum = 1;
   const errors = []
   const table_data = raw.map((r) => {
@@ -99,7 +100,10 @@ function structure_raw_data(raw) {
       start: {value: r[config.start_col], error: null},
       end: {value: r[config.end_col], error: null},
       task: {value: r[config.task_col], error: null},
-      note: {value: r[config.notes_col], error: null}
+      note: {value: r[config.notes_col], error: null},
+      teamwork_customer: {value: "", error: null},
+      teamwork_project: {value: "", error: null},
+      teamwork_content: {value: "", error: null},
     };
 
     if (! t.name.value) {
@@ -142,6 +146,14 @@ function structure_raw_data(raw) {
       parseInt(t.task.value, 10) <0
       ) {
       t.task.error = { severity: "ERROR", message: `Teamwork task id may must be a positive integer` }
+    }
+    else if (!tasks[t.task.value]) {
+      t.task.error = { severity: "ERROR", message: `Teamwork task with id ${t.task.value} not known` }
+    }
+    else {
+      t.teamwork_customer.value =tasks[t.task.value]['company-name'] 
+      t.teamwork_project.value =tasks[t.task.value]['project-name'] 
+      t.teamwork_content.value =tasks[t.task.value]['content'] 
     }
 
     for (const x in t) {
@@ -225,9 +237,36 @@ function open_csv(filePath) {
     });
 }
 
-function process_csv_data(raw) {
+async function process_csv_data(raw) {
+
+  const valid_tasks = await get_task_list();
+  var tasks = {}
+  valid_tasks.forEach((task) => tasks[task.id] = task)
+
   const errs = check_mandatory_cols(raw);
-  const {table_data, errors} = structure_raw_data(raw);
+  const {table_data, errors} = structure_raw_data(raw, tasks);
 
   mainWindow.webContents.send("set-table-data", {tbl_data: table_data, tbl_errors: errs.concat(errors)});
+}
+
+async function get_task_list() {
+
+    try {
+      const resp = await axios.get(`${config.base_url}/tasks.json`,{
+        params: {},
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        auth: {
+          username: config.token,
+          password: 'X'
+        }
+      })
+      return resp.data['todo-items'].filter((x) => {return x["canLogTime"] == true})
+    }
+    catch (e) {
+      console.warn("failed task get", JSON.stringify(e))
+      raise(e)
+    }
+
 }

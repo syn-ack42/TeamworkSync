@@ -127,7 +127,15 @@ class DataTable extends React.Component {
               })}
             />
             <DataHeadCell
-              text="TeamworkTask"
+              text="Notes"
+              error={this.props.table.tbl_errors.find((x) => {
+                return (
+                  x.row === null && (x.column == "note" || x.column === null)
+                );
+              })}
+            />
+            <DataHeadCell
+              text="Task ID"
               error={this.props.table.tbl_errors.find((x) => {
                 return (
                   x.row === null && (x.column == "task" || x.column === null)
@@ -135,12 +143,16 @@ class DataTable extends React.Component {
               })}
             />
             <DataHeadCell
-              text="Notes"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "note" || x.column === null)
-                );
-              })}
+              text="Customer"
+              error={false}
+            />
+            <DataHeadCell
+              text="Project"
+              error={false}
+            />
+            <DataHeadCell
+              text="Content"
+              error={false}
             />
           </tr>
         </thead>
@@ -151,8 +163,11 @@ class DataTable extends React.Component {
               <DataTableCell cell_data={row.name} />
               <DataTableCell cell_data={row.start} />
               <DataTableCell cell_data={row.end} />
-              <DataTableCell cell_data={row.task} />
               <DataTableCell cell_data={row.note} />
+              <DataTableCell cell_data={row.task} />
+              <DataTableCell cell_data={row.teamwork_customer} />
+              <DataTableCell cell_data={row.teamwork_project} />
+              <DataTableCell cell_data={row.teamwork_content} />
             </tr>
           ))}
         </tbody>
