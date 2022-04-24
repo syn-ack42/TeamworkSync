@@ -3,6 +3,7 @@ class TeamworkSync extends React.Component {
     super(props);
     this.state = {
       table: { tbl_data: [], tbl_errors: [] },
+      errors: [],
       file_path: null,
       config: {
         base_url: "https://aspiresoftware.eu.teamwork.com",
@@ -39,6 +40,12 @@ class TeamworkSync extends React.Component {
     this.setState(s);
   }
 
+  set_errors(data) {
+    var s = this.state;
+    s.errors = data || [];
+    this.setState(s);    
+  }
+
   async load_csv() {
     const filePath = await window.electronAPI.open_file_dialog();
     var s = this.state;
@@ -65,7 +72,7 @@ class TeamworkSync extends React.Component {
           <button
             type="button"
             disabled={
-              this.state.table.tbl_errors.filter((x) => {
+              this.state.errors.filter((x) => {
                 return x.severity == "ERROR";
               }).length > 0 || this.state.table.tbl_data.length <= 0
             }
@@ -76,6 +83,7 @@ class TeamworkSync extends React.Component {
             Submit to Teamwork
           </button>
         </div>
+        <ErrorList errors={this.state.errors} />
         <div className="config-menu">
           <ConfigMenu
             config={this.state.config}
@@ -218,6 +226,25 @@ class DataTableCell extends React.Component {
   }
 }
 
+class ErrorList extends React.Component {
+  render() {
+    return (<ul className="error-list">
+      {this.props.errors.map((e) => (<ErrorListItem error={e} />))}
+    </ul>)
+  }
+}
+
+class ErrorListItem extends React.Component {
+  render() {
+    return (<li className={"error-list-item " + this.props.error.severity}>
+      {`${this.props.error.severity}: `}
+      {this.props.error.row !== null ? `Row: '${this.props.error.row}' ` : ""}
+      {this.props.error.column !== null ? `Column: '${this.props.error.column}' ` : ""}
+      {this.props.error.message !== null ? `>> ${this.props.error.message}` : ""}
+    </li>);
+  }
+}
+
 class ConfigMenu extends React.Component {
 
   render() {
@@ -281,4 +308,8 @@ window.electronAPI.register_set_table((event, value) => {
 
 window.electronAPI.register_set_config((event, value) => {
   app.update_config(value)
+});
+
+window.electronAPI.register_set_errors((event, value) => {
+  app.set_errors(value);
 });
