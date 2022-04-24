@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   register_set_config: (callback) => ipcRenderer.on('set-config', callback),
   register_set_errors: (callback) => ipcRenderer.on('set-errors', callback),
   store_config: (conf) => ipcRenderer.invoke('store-config', conf),
+  submit_to_teamwork: () => ipcRenderer.invoke('submit-to-teamwork'),
 })
 

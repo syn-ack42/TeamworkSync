@@ -3,6 +3,7 @@ const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
 const parse = require("date-fns/parse");
+const format = require("date-fns/format")
 const axios = require("axios");
 
 const default_config = {
@@ -15,6 +16,9 @@ const default_config = {
   notes_col: "Notes",
   date_pattern: "dd.MM.yyyy HH:mm:ss",
 };
+
+var g_data = [];
+var g_errors = []
 
 var mainWindow;
 
@@ -60,6 +64,7 @@ app.on("window-all-closed", () => {
 
 app.whenReady().then(() => {
   ipcMain.handle("open-file-dialog", open_file_dialog);
+  ipcMain.handle("submit-to-teamwork", submit_to_teamwork);
   ipcMain.handle("open-file-drop", (event, filename) => {
     open_csv(filename);
   });
@@ -270,21 +275,21 @@ async function process_csv_data(raw) {
         severity: "ERROR",
         column: null,
         row: null,
-        message: `${err.response.status}: Unauthorized please check Temawork token '${err.response.message}'`,
+        message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Temawork token '${err.message}'`,
       });
     } else if (err.response) {
       gen_errors.push({
         severity: "ERROR",
         column: null,
         row: null,
-        message: `${err.response.status}: Failed get task list from Teamwork '${err.response.message}'`,
+        message: `${err.response.status} - ${err.response.statusText}: Failed get task list from Teamwork '${err.message}'`,
       });
     } else {
       gen_errors.push({
         severity: "ERROR",
         column: null,
         row: null,
-        message: `Failed to connect to Teamwork '${err}'`,
+        message: `Failed to connect to Teamwork '${err.message}'`,
       });
     }
   }
@@ -295,11 +300,14 @@ async function process_csv_data(raw) {
   const [ table_data, d_errs ] = structure_raw_data(raw, tasks);
   const tbl_errors = col_errs.concat(d_errs);
 
+  g_data = table_data
+  g_errors = gen_errors.concat(tbl_errors);
+
   mainWindow.webContents.send("set-table-data", {
-    tbl_data: table_data,
+    tbl_data: g_data,
     tbl_errors: tbl_errors,
   });
-  mainWindow.webContents.send("set-errors", gen_errors.concat(tbl_errors));
+  mainWindow.webContents.send("set-errors", g_errors);
 }
 
 async function get_task_list() {
@@ -316,4 +324,103 @@ async function get_task_list() {
   return resp.data["todo-items"].filter((x) => {
     return x["canLogTime"] == true;
   });
+}
+
+async function submit_to_teamwork() {
+  if (g_errors.filter((x) => {return x.severity == "ERROR"}).length >0) {
+    const e = [
+      {
+        severity: "ERROR",
+        column: null,
+        row: null,
+        message: `Can't send to Teamwork while there are 'ERROR' entries!`,
+      },
+    ];
+    mainWindow.webContents.send("set-errors", e.concat(g_errors))
+    return
+  }
+
+  for (row of g_data) {
+    if (!await submit_time_record(row)) {
+      g_errors.push({
+        severity: "ERROR",
+        column: null,
+        row: null,
+        message: `Stopping submission to Teamwork at ${row.row.value}. Failure: '${err.message}'`,
+      });
+      mainWindow.webContents.send("set-errors", g_errors)
+      return
+    }
+  }
+  g_errors = []
+  g_data = []
+  mainWindow.webContents.send("set-errors", g_errors)
+  mainWindow.webContents.send("set-table-data", {
+    tbl_data: g_data,
+    tbl_errors: g_errors,
+  });
+}
+
+async function submit_time_record(rec) {
+
+  const now = new Date();
+  const s = parse(rec.start.value, config.date_pattern, new Date("0000-01-01"));
+  const e = parse(rec.end.value, config.date_pattern, new Date("0000-01-01"));
+
+  const d = e.getTime() - s.getTime()
+  const hrs = parseInt(d / 3600000)
+  const mts = parseInt((d%3600000) / 60000)
+
+  const data = {
+    "time-entry": {
+      "description": row.note.value,
+      "date": format(s, 'yyyyMMdd'),
+      "time": format(s, 'HH:mm'),
+      "hours": hrs,
+      "minutes": mts
+    }
+  }
+
+  try {
+    const resp = await axios.post(`${config.base_url}/tasks/${row.task.value}/time_entries.json`, 
+      data, {
+      params: {},
+      headers: {
+        "Content-Type": "application/json",
+      },
+      auth: {
+        username: config.token,
+        password: "X",
+      }
+    });    
+  
+} catch (err) {
+  if (err.response && err.response.status === 401) {
+    g_errors.push({
+      severity: "ERROR",
+      column: null,
+      row: null,
+      message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Temawork token '${err.message}'`,
+    });
+  } else if (err.response) {
+    g_errors.push({
+      severity: "ERROR",
+      column: null,
+      row: null,
+      message: `${err.response.status} - ${err.response.statusText}: Failed posting time record to Teamwork '${err.message}'`,
+    });
+  } else {
+    g_errors.push({
+      severity: "ERROR",
+      column: null,
+      row: null,
+      message: `Failed to connect to Teamwork '${err.message}'`,
+    });
+  }
+  mainWindow.webContents.send("set-errors", g_errors)
+  return false;
+}
+return true;
+
+
 }

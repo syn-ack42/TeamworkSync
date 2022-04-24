@@ -13,13 +13,17 @@ class TeamworkSync extends React.Component {
         end_col: "End",
         task_col: "TeamworkTask",
         notes_col: "Notes",
-        date_pattern: "dd.MM.yyyy HH:mm:ss"
-      }
+        date_pattern: "dd.MM.yyyy HH:mm:ss",
+      },
     };
   }
 
   handle_config_save() {
     window.electronAPI.store_config(this.state.config);
+  }
+
+  handle_submit() {
+    window.electronAPI.submit_to_teamwork();
   }
 
   update_conf_key(key, value) {
@@ -43,7 +47,7 @@ class TeamworkSync extends React.Component {
   set_errors(data) {
     var s = this.state;
     s.errors = data || [];
-    this.setState(s);    
+    this.setState(s);
   }
 
   async load_csv() {
@@ -77,7 +81,7 @@ class TeamworkSync extends React.Component {
               }).length > 0 || this.state.table.tbl_data.length <= 0
             }
             onClick={() => {
-              this.send_data();
+              this.handle_submit();
             }}
           >
             Submit to Teamwork
@@ -150,18 +154,9 @@ class DataTable extends React.Component {
                 );
               })}
             />
-            <DataHeadCell
-              text="Customer"
-              error={false}
-            />
-            <DataHeadCell
-              text="Project"
-              error={false}
-            />
-            <DataHeadCell
-              text="Content"
-              error={false}
-            />
+            <DataHeadCell text="Customer" error={false} />
+            <DataHeadCell text="Project" error={false} />
+            <DataHeadCell text="Content" error={false} />
           </tr>
         </thead>
         <tbody>
@@ -228,38 +223,105 @@ class DataTableCell extends React.Component {
 
 class ErrorList extends React.Component {
   render() {
-    return (<ul className="error-list">
-      {this.props.errors.map((e) => (<ErrorListItem error={e} />))}
-    </ul>)
+    var i=0;
+    return (
+      <ul className="error-list">
+        {this.props.errors.map((e) => (
+          <ErrorListItem key={`eli_${i++}`} error={e} />
+        ))}
+      </ul>
+    );
   }
 }
 
 class ErrorListItem extends React.Component {
   render() {
-    return (<li className={"error-list-item " + this.props.error.severity}>
-      {`${this.props.error.severity}: `}
-      {this.props.error.row !== null ? `Row: '${this.props.error.row}' ` : ""}
-      {this.props.error.column !== null ? `Column: '${this.props.error.column}' ` : ""}
-      {this.props.error.message !== null ? `>> ${this.props.error.message}` : ""}
-    </li>);
+    return (
+      <li className={"error-list-item " + this.props.error.severity}>
+        {`${this.props.error.severity}: `}
+        {this.props.error.row !== null ? `Row: '${this.props.error.row}' ` : ""}
+        {this.props.error.column !== null
+          ? `Column: '${this.props.error.column}' `
+          : ""}
+        {this.props.error.message !== null
+          ? `>> ${this.props.error.message}`
+          : ""}
+      </li>
+    );
   }
 }
 
 class ConfigMenu extends React.Component {
-
   render() {
-
     return (
       <div>
-        <h2><center>Configuration</center></h2>
-        <ConfigOption text="Url" id="base_url" value={this.props.config.base_url} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Teamwork Token" id="token" value={this.props.config.token} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Work Item Column" id="winame_col" value={this.props.config.winame_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Start Time Column" id="start_col" value={this.props.config.start_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="End Time Column" id="end_col" value={this.props.config.end_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Task ID Column" id="task_col" value={this.props.config.task_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Notes Column" id="notes_col" value={this.props.config.notes_col} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
-        <ConfigOption text="Date-Time Pattern" id="date_pattern" value={this.props.config.date_pattern} onChange={(key, value) => { this.props.onConfKeyUpdate(key, value) }} />
+        <h2>
+          <center>Configuration</center>
+        </h2>
+        <ConfigOption
+          text="Url"
+          id="base_url"
+          value={this.props.config.base_url}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Teamwork Token"
+          id="token"
+          value={this.props.config.token}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Work Item Column"
+          id="winame_col"
+          value={this.props.config.winame_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Start Time Column"
+          id="start_col"
+          value={this.props.config.start_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="End Time Column"
+          id="end_col"
+          value={this.props.config.end_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Task ID Column"
+          id="task_col"
+          value={this.props.config.task_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Notes Column"
+          id="notes_col"
+          value={this.props.config.notes_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Date-Time Pattern"
+          id="date_pattern"
+          value={this.props.config.date_pattern}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
         <div align="center">
           <button onClick={() => this.props.onConfSave()}>Save</button>
         </div>
@@ -273,15 +335,14 @@ class ConfigOption extends React.Component {
     return (
       <div className="conf-option">
         <span className="conf-label">{this.props.text}</span>
-        <input className="conf-text-input"
+        <input
+          className="conf-text-input"
           id={this.props.id}
           value={this.props.value}
-          onChange={(e) =>
-            this.props.onChange(this.props.id, e.target.value)
-          }
+          onChange={(e) => this.props.onChange(this.props.id, e.target.value)}
         />
       </div>
-    )
+    );
   }
 }
 const container = document.getElementById("root");
@@ -307,7 +368,7 @@ window.electronAPI.register_set_table((event, value) => {
 });
 
 window.electronAPI.register_set_config((event, value) => {
-  app.update_config(value)
+  app.update_config(value);
 });
 
 window.electronAPI.register_set_errors((event, value) => {
