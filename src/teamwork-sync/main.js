@@ -241,7 +241,11 @@ function open_csv(filePath) {
   fs.createReadStream(filePath)
     .pipe(csv())
     .on("data", (row) => {
-      tbl_data.push(row);
+      var r = {};
+      Object.keys(row).map((k) => {
+        r[k.trim()] = row[k]
+      })
+      tbl_data.push(r);
     })
     .on("end", () => {
       process_csv_data(tbl_data);

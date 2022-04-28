@@ -323,7 +323,7 @@ class ConfigMenu extends React.Component {
           }}
         />
         <div align="center">
-          <button onClick={() => this.props.onConfSave()}>Save</button>
+          <button onClick={() => this.props.onConfSave()} className='conf-option' >Save</button>
         </div>
       </div>
     );
