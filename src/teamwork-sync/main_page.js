@@ -60,19 +60,28 @@ class TeamworkSync extends React.Component {
   render() {
     return (
       <div>
-        <div className="load-section">
+        <div className="app-section">
+          <h1>1. Load</h1>
+          <p className="text">Open a CSV file with time records or just drag&nbsp;drop it on this app.</p>
           <button
             type="button"
             onClick={() => {
               this.load_csv();
             }}
           >
-            Load CSV
+            Open CSV
           </button>
-          <strong>{this.state.file_path || ""}</strong>
+          <div className="filename">Selected file: {this.state.file_path || ""}</div>
         </div>
-        <DataTable table={this.state.table} />
-        <div className="send-section">
+        <div className="app-section">
+        <h1>2. Check</h1>
+          <p className="text">Review your data - you will only be able to post it if there are no ERRORs.</p>
+          <DataTable table={this.state.table} />
+          <ErrorList errors={this.state.errors} />
+        </div>
+        <div className="app-section">
+        <h1>3. Submit</h1>
+          <p className="text">Everthing looks good? Submit your time records to Teamworks.</p>
           <button
             type="button"
             disabled={
@@ -87,7 +96,6 @@ class TeamworkSync extends React.Component {
             Submit to Teamwork
           </button>
         </div>
-        <ErrorList errors={this.state.errors} />
         <div className="config-menu">
           <ConfigMenu
             config={this.state.config}
@@ -103,9 +111,10 @@ class TeamworkSync extends React.Component {
 class DataTable extends React.Component {
   render() {
     return (
+      <div className="data-table-container">
       <table className="data-table">
         <thead>
-          <tr>
+          <tr className="data-head" >
             <DataHeadCell
               text="Row#"
               error={this.props.table.tbl_errors.find((x) => {
@@ -175,6 +184,7 @@ class DataTable extends React.Component {
           ))}
         </tbody>
       </table>
+      </div>
     );
   }
 }
@@ -184,7 +194,7 @@ class DataHeadCell extends React.Component {
     return (
       <th
         className={
-          "tooltip-host" +
+          "data-head-cell tooltip-host" +
           (this.props.error
             ? " " + this.props.error.severity.toLowerCase()
             : "")
@@ -204,7 +214,7 @@ class DataTableCell extends React.Component {
     return (
       <td
         className={
-          "tooltip-host" +
+          "data-table-cell tooltip-host" +
           (this.props.cell_data.error
             ? " " + this.props.cell_data.error.severity.toLowerCase()
             : "")
