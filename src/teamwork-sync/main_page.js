@@ -62,7 +62,10 @@ class TeamworkSync extends React.Component {
       <div>
         <div className="app-section">
           <h1>1. Load</h1>
-          <p className="text">Open a CSV file with time records or just drag&nbsp;drop it on this app.</p>
+          <p className="text">
+            Open a CSV file with time records or just drag&nbsp;drop it on this
+            app.
+          </p>
           <button
             type="button"
             onClick={() => {
@@ -71,17 +74,24 @@ class TeamworkSync extends React.Component {
           >
             Open CSV
           </button>
-          <div className="filename">Selected file: {this.state.file_path || ""}</div>
+          <div className="filename">
+            Selected file: {this.state.file_path || ""}
+          </div>
         </div>
         <div className="app-section">
-        <h1>2. Check</h1>
-          <p className="text">Review your data - you will only be able to post it if there are no ERRORs.</p>
+          <h1>2. Check</h1>
+          <p className="text">
+            Review your data - you will only be able to post it if there are no
+            ERRORs.
+          </p>
           <DataTable table={this.state.table} />
           <ErrorList errors={this.state.errors} />
         </div>
         <div className="app-section">
-        <h1>3. Submit</h1>
-          <p className="text">Everthing looks good? Submit your time records to Teamworks.</p>
+          <h1>3. Submit</h1>
+          <p className="text">
+            Everthing looks good? Submit your time records to Teamworks.
+          </p>
           <button
             type="button"
             disabled={
@@ -96,13 +106,11 @@ class TeamworkSync extends React.Component {
             Submit to Teamwork
           </button>
         </div>
-        <div className="config-menu">
-          <ConfigMenu
-            config={this.state.config}
-            onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
-            onConfSave={(conf) => this.handle_config_save(conf)}
-          />
-        </div>
+        <ConfigMenu
+          config={this.state.config}
+          onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
+          onConfSave={(conf) => this.handle_config_save(conf)}
+        />
       </div>
     );
   }
@@ -112,78 +120,78 @@ class DataTable extends React.Component {
   render() {
     return (
       <div className="data-table-container">
-      <table className="data-table">
-        <thead>
-          <tr className="data-head" >
-            <DataHeadCell
-              text="Row#"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "row" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell
-              text="Work Item Name"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "name" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell
-              text="Start"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "start" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell
-              text="End"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "end" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell
-              text="Notes"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "note" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell
-              text="Task ID"
-              error={this.props.table.tbl_errors.find((x) => {
-                return (
-                  x.row === null && (x.column == "task" || x.column === null)
-                );
-              })}
-            />
-            <DataHeadCell text="Customer" error={false} />
-            <DataHeadCell text="Project" error={false} />
-            <DataHeadCell text="Content" error={false} />
-          </tr>
-        </thead>
-        <tbody>
-          {this.props.table.tbl_data.map((row) => (
-            <tr key={row.row.value}>
-              <DataTableCell cell_data={row.row} />
-              <DataTableCell cell_data={row.name} />
-              <DataTableCell cell_data={row.start} />
-              <DataTableCell cell_data={row.end} />
-              <DataTableCell cell_data={row.note} />
-              <DataTableCell cell_data={row.task} />
-              <DataTableCell cell_data={row.teamwork_customer} />
-              <DataTableCell cell_data={row.teamwork_project} />
-              <DataTableCell cell_data={row.teamwork_content} />
+        <table className="data-table">
+          <thead>
+            <tr className="data-head">
+              <DataHeadCell
+                text="Row#"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "row" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell
+                text="Work Item Name"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "name" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell
+                text="Start"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "start" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell
+                text="End"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "end" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell
+                text="Notes"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "note" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell
+                text="Task ID"
+                error={this.props.table.tbl_errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "task" || x.column === null)
+                  );
+                })}
+              />
+              <DataHeadCell text="Customer" error={false} />
+              <DataHeadCell text="Project" error={false} />
+              <DataHeadCell text="Content" error={false} />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {this.props.table.tbl_data.map((row) => (
+              <tr key={row.row.value}>
+                <DataTableCell cell_data={row.row} />
+                <DataTableCell cell_data={row.name} />
+                <DataTableCell cell_data={row.start} />
+                <DataTableCell cell_data={row.end} />
+                <DataTableCell cell_data={row.note} />
+                <DataTableCell cell_data={row.task} />
+                <DataTableCell cell_data={row.teamwork_customer} />
+                <DataTableCell cell_data={row.teamwork_project} />
+                <DataTableCell cell_data={row.teamwork_content} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -233,7 +241,7 @@ class DataTableCell extends React.Component {
 
 class ErrorList extends React.Component {
   render() {
-    var i=0;
+    var i = 0;
     return (
       <ul className="error-list">
         {this.props.errors.map((e) => (
@@ -262,10 +270,33 @@ class ErrorListItem extends React.Component {
 }
 
 class ConfigMenu extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      open: true,
+    };
+  }
+
+  toggleOpen() {
+    var s = this.state;
+    s.open = !s.open;
+    this.setState(s);
+  }
+
   render() {
     return (
-      <div>
-        <h2>
+      <div className={"config-menu" + (this.state.open ? " conf-open" : "")} >
+        <div
+          className={"conf-toggle" + (this.state.open ? " conf-open" : "")}
+          onClick={() => {
+            this.toggleOpen();
+          }}
+        >
+          <div className="bar1"></div>
+          <div className="bar2"></div>
+          <div className="bar3"></div>
+        </div>
+        <h2 className={"conf-header" + (this.state.open ? " conf-open" : "")}>
           <center>Configuration</center>
         </h2>
         <ConfigOption
@@ -333,7 +364,12 @@ class ConfigMenu extends React.Component {
           }}
         />
         <div align="center">
-          <button onClick={() => this.props.onConfSave()} className='conf-option' >Save</button>
+          <button
+            onClick={() => this.props.onConfSave()}
+            className="conf-option"
+          >
+            Save
+          </button>
         </div>
       </div>
     );

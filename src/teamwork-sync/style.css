@@ -98,9 +98,6 @@ button {
   font-family: inherit;
   color: inherit;
   border-collapse: collapse;
-  border-color: white;
-  border-width: 1px;
-  border-style: dotted;
   text-align: left;
   max-height: 50%;
   overflow: scroll;
@@ -125,10 +122,9 @@ button {
   display: flex;
   width: 70%;
   padding-inline-start: 0;
-  max-height: 30%;
+  max-height: 25%;
   overflow: scroll;
-  max-height: 300px;
-  overflow: scroll;
+  flex-wrap: wrap;
 }
 
 .data-table-cell {
@@ -148,6 +144,10 @@ button {
 }
 
 .data-table-container {
-  max-height: 300px;
+  max-height: 30%;
   overflow: scroll;
+  border-block-color: white;
+  border-width: 1;
+  border-style: dotted;
+  display: inline-block;
 }

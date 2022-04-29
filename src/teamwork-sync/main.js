@@ -7,8 +7,8 @@ const format = require("date-fns/format")
 const axios = require("axios");
 
 const default_config = {
-  base_url: "https://aspiresoftware.eu.teamwork.com",
-  token: "fds",
+  base_url: "https://YOUR_COMPANY.XX.teamwork.com",
+  token: "YOUR TOKEN HERE",
   winame_col: "Work Item",
   start_col: "Start",
   end_col: "End",
@@ -40,7 +40,7 @@ function storeConfigFile(filename, conf) {
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1500,
     height: 1000,
     title: "Teamwork Sync",
     webPreferences: {
@@ -344,7 +344,10 @@ async function submit_to_teamwork() {
     return
   }
 
-  for (row of g_data) {
+  const grs = g_data;
+
+  while (g_data.length > 0) {
+    const row = g_data.pop();
     if (!await submit_time_record(row)) {
       g_errors.push({
         severity: "ERROR",
@@ -352,10 +355,17 @@ async function submit_to_teamwork() {
         row: null,
         message: `Stopping submission to Teamwork at ${row.row.value}. Failure: '${err.message}'`,
       });
+      g_data.push(row)
       mainWindow.webContents.send("set-errors", g_errors)
       return
     }
+    mainWindow.webContents.send("set-table-data", {
+      tbl_data: g_data,
+      tbl_errors: g_errors,
+    });
+  
   }
+
   g_errors = []
   g_data = []
   mainWindow.webContents.send("set-errors", g_errors)
@@ -377,7 +387,7 @@ async function submit_time_record(rec) {
 
   const data = {
     "time-entry": {
-      "description": row.note.value,
+      "description": rec.note.value,
       "date": format(s, 'yyyyMMdd'),
       "time": format(s, 'HH:mm'),
       "hours": hrs,
@@ -386,7 +396,7 @@ async function submit_time_record(rec) {
   }
 
   try {
-    const resp = await axios.post(`${config.base_url}/tasks/${row.task.value}/time_entries.json`, 
+    const resp = await axios.post(`${config.base_url}/tasks/${rec.task.value}/time_entries.json`, 
       data, {
       params: {},
       headers: {
