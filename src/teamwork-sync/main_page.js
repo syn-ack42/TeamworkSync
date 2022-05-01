@@ -1,3 +1,5 @@
+const { default: th } = require("date-fns/esm/locale/th/index.js");
+
 class TeamworkSync extends React.Component {
   constructor(props) {
     super(props);
@@ -15,7 +17,12 @@ class TeamworkSync extends React.Component {
         notes_col: "Notes",
         date_pattern: "dd.MM.yyyy HH:mm:ss",
       },
+      pw_dialog_open: true,
     };
+  }
+
+  handle_password(pw) {
+    window.electronAPI.receive_password(pw); //TODO
   }
 
   handle_config_save() {
@@ -111,6 +118,7 @@ class TeamworkSync extends React.Component {
           onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
           onConfSave={(conf) => this.handle_config_save(conf)}
         />
+        <PasswordDialog open={this.state.pw_dialog_open} onPasswordEnter={(pw)=>{this.handlePassword(pw)}}/>
       </div>
     );
   }
@@ -391,6 +399,29 @@ class ConfigOption extends React.Component {
     );
   }
 }
+
+
+class PasswordDialog extends React.Component {
+  render() {
+    return (<div className={"password-dialog" + (this.props.open ? " pw-dialog-open" : "")}>
+      <h2 className="password-prompt-head">Application password</h2>
+      <p>This password is used to protect zour Teamwork APi key.</p>
+      <input
+          className="conf-text-input"
+          id="password"
+        />
+                <div align="center">
+          <button
+            onClick={() => this.props.onPasswordEnter()}
+            className="conf-option"
+          >
+            OK
+          </button>
+        </div>
+    </div>)
+  }
+}
+
 const container = document.getElementById("root");
 
 const app = ReactDOM.render(<TeamworkSync />, container);

@@ -8,7 +8,7 @@ const axios = require("axios");
 
 const default_config = {
   base_url: "https://YOUR_COMPANY.XX.teamwork.com",
-  token: "YOUR TOKEN HERE",
+  token: null,
   winame_col: "Work Item",
   start_col: "Start",
   end_col: "End",
