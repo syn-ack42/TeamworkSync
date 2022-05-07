@@ -3,12 +3,17 @@ const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
 const parse = require("date-fns/parse");
-const format = require("date-fns/format")
+const format = require("date-fns/format");
 const axios = require("axios");
+
+const nodeCrypto = require("crypto");
+const algorithm = "aes-256-cbc";
 
 const default_config = {
   base_url: "https://YOUR_COMPANY.XX.teamwork.com",
-  token: null,
+  token: "YOUR_TOKEN",
+  pwd_hash: null,
+  pwd_iv: null,
   winame_col: "Work Item",
   start_col: "Start",
   end_col: "End",
@@ -17,25 +22,165 @@ const default_config = {
   date_pattern: "dd.MM.yyyy HH:mm:ss",
 };
 
+/*----------------------------------------------------------------
+        APPLICATTION STATE
+----------------------------------------------------------------*/
+var appState = "UNINIT"; //UNINIT, LOCKED, UNLOCKED
 var g_data = [];
-var g_errors = []
+var g_errors = [];
 
-var mainWindow;
+var mainWindow = null;
 
+var config = null; //the decrypted version of the config
+var crypt_key = null; //the encryption key derived from the user password
+/*--------------------------------------------------------------*/
+
+/*----------------------------------------------------------------
+        INITIALIZE APPLICATTION
+----------------------------------------------------------------*/
 const userDataFile = path.join(app.getPath("userData"), "config.json");
-var config = parseConfFile(userDataFile, default_config);
 
-function parseConfFile(filePath, defaults) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath));
-  } catch (error) {
-    return defaults;
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+
+app.whenReady().then(() => {
+  ipcMain.handle("reset-password", (event) => {
+    return handle_reset_password();
+  });
+  ipcMain.handle("pwd-entered", (event, pwd) => {
+    return handle_password(pwd);
+  });
+
+  ipcMain.handle("open-file-dialog", open_file_dialog);
+  ipcMain.handle("submit-to-teamwork", submit_to_teamwork);
+  ipcMain.handle("open-file-drop", (event, filename) => {
+    open_csv(filename);
+  });
+  ipcMain.handle("store-config", (event, conf) => {
+    config = Object.assign(config, conf);
+    storeConfigFile();
+    mainWindow.webContents.send("set-config", config);
+  });
+  createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+
+  if (loadConfFile()) {
+    appState = "LOCKED";
+  }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send("set-app-state", appState);
+  })
+});
+
+/*--------------------------------------------------------------*/
+
+function handle_password(pwd) {
+  if (appState === "LOCKED") {
+    return handle_pwd_entered(pwd)
+  }
+  else if (appState === "UNINIT") {
+    return handle_set_password(pwd)
   }
 }
 
-function storeConfigFile(filename, conf) {
-  const c = Object.assign(default_config, conf);
-  fs.writeFileSync(filename, JSON.stringify(c));
+function handle_set_password(pwd) {
+  var hash = nodeCrypto.createHash("sha256");
+  hash.update(pwd);
+  config.pwd_hash = hash.digest();
+
+  hash = nodeCrypto.createHash("sha256");
+  hash.update(pwd);
+  hash.update("encryptokey");
+  crypt_key = hash.digest();
+
+  config.pwd_iv = nodeCrypto.randomBytes(16);
+  storeConfigFile();
+  appState = "UNLOCKED";
+  mainWindow.webContents.send("set-app-state", appState);
+  mainWindow.webContents.send("set-config", config);
+
+  return true;
+}
+
+function handle_reset_password() {
+  config.pwd_hash = null;
+  config.pwd_iv = null;
+  crypt_key = null;
+  appState = "UNINIT";
+  mainWindow.webContents.send("set-app-state", appState);
+  return true
+}
+
+function handle_pwd_entered(pwd) {
+  var hash = nodeCrypto.createHash("sha256");
+  hash.update(pwd);
+  let d = hash.digest()
+
+  if (config.pwd_hash.toString("base64") !== d.toString("base64")) {
+    appState = "LOCKED";
+    mainWindow.webContents.send("set-app-state", appState);
+    return false;
+  }
+
+  try {
+    var hash = nodeCrypto.createHash("sha256");
+    hash.update(pwd);
+    hash.update("encryptokey");
+
+    crypt_key = hash.digest();
+
+    const decipher = nodeCrypto.createDecipheriv(
+      algorithm,
+      crypt_key,
+      config.pwd_iv
+    );
+    config.token = Buffer.concat([
+      decipher.update(config.token, "base64"),
+      decipher.final(),
+    ]).toString()
+    appState = "UNLOCKED";
+    mainWindow.webContents.send("set-app-state", appState);
+    mainWindow.webContents.send("set-config", config);
+    return true;
+  } catch (e) {
+    appState = "LOCKED";
+    mainWindow.webContents.send("set-app-state", appState);
+    return false;
+  }
+}
+
+function loadConfFile() {
+  try {
+    let c = JSON.parse(fs.readFileSync(userDataFile));
+    c.pwd_iv = Buffer.from(c.pwd_iv, "base64");
+    c.pwd_hash = Buffer.from(c.pwd_hash, "base64");
+    c.token = Buffer.from(c.token, "base64");
+    config = c;
+    appState = "LOCKED";
+    return true;
+  } catch (error) {
+    appState = "UNINIT";
+    config = Object.assign({}, default_config);
+  }
+}
+
+function storeConfigFile() {
+  let tcnf = Object.assign({}, config);
+
+  const cipher = nodeCrypto.createCipheriv(algorithm, crypt_key, config.pwd_iv);
+  tcnf.token = Buffer.concat([
+    cipher.update(config.token || ""),
+    cipher.final(),
+  ]).toString("base64")
+  tcnf.pwd_hash = Buffer(config.pwd_hash).toString("base64")
+  tcnf.pwd_iv = Buffer(config.pwd_iv).toString("base64")
+
+  fs.writeFileSync(userDataFile, JSON.stringify(tcnf));
 }
 
 const createWindow = () => {
@@ -57,28 +202,6 @@ const createWindow = () => {
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 };
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
-
-app.whenReady().then(() => {
-  ipcMain.handle("open-file-dialog", open_file_dialog);
-  ipcMain.handle("submit-to-teamwork", submit_to_teamwork);
-  ipcMain.handle("open-file-drop", (event, filename) => {
-    open_csv(filename);
-  });
-  ipcMain.handle("store-config", (event, conf) => {
-    storeConfigFile(userDataFile, conf);
-    config = parseConfFile(userDataFile, config);
-    mainWindow.webContents.send("set-config", config);
-  });
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
 
 async function open_file_dialog() {
   const { canceled, filePaths } = await dialog.showOpenDialog();
@@ -183,7 +306,7 @@ function structure_raw_data(raw, tasks) {
     return t;
   });
 
-  return [ table_data, errors ];
+  return [table_data, errors];
 }
 
 function check_mandatory_cols(raw) {
@@ -243,8 +366,8 @@ function open_csv(filePath) {
     .on("data", (row) => {
       var r = {};
       Object.keys(row).map((k) => {
-        r[k.trim()] = row[k]
-      })
+        r[k.trim()] = row[k];
+      });
       tbl_data.push(r);
     })
     .on("end", () => {
@@ -301,10 +424,10 @@ async function process_csv_data(raw) {
   valid_tasks.forEach((task) => (tasks[task.id] = task));
 
   const col_errs = check_mandatory_cols(raw);
-  const [ table_data, d_errs ] = structure_raw_data(raw, tasks);
+  const [table_data, d_errs] = structure_raw_data(raw, tasks);
   const tbl_errors = col_errs.concat(d_errs);
 
-  g_data = table_data
+  g_data = table_data;
   g_errors = gen_errors.concat(tbl_errors);
 
   mainWindow.webContents.send("set-table-data", {
@@ -331,7 +454,11 @@ async function get_task_list() {
 }
 
 async function submit_to_teamwork() {
-  if (g_errors.filter((x) => {return x.severity == "ERROR"}).length >0) {
+  if (
+    g_errors.filter((x) => {
+      return x.severity == "ERROR";
+    }).length > 0
+  ) {
     const e = [
       {
         severity: "ERROR",
@@ -340,35 +467,34 @@ async function submit_to_teamwork() {
         message: `Can't send to Teamwork while there are 'ERROR' entries!`,
       },
     ];
-    mainWindow.webContents.send("set-errors", e.concat(g_errors))
-    return
+    mainWindow.webContents.send("set-errors", e.concat(g_errors));
+    return;
   }
 
   const grs = g_data;
 
   while (g_data.length > 0) {
     const row = g_data.pop();
-    if (!await submit_time_record(row)) {
+    if (!(await submit_time_record(row))) {
       g_errors.push({
         severity: "ERROR",
         column: null,
         row: null,
         message: `Stopping submission to Teamwork at ${row.row.value}. Failure: '${err.message}'`,
       });
-      g_data.push(row)
-      mainWindow.webContents.send("set-errors", g_errors)
-      return
+      g_data.push(row);
+      mainWindow.webContents.send("set-errors", g_errors);
+      return;
     }
     mainWindow.webContents.send("set-table-data", {
       tbl_data: g_data,
       tbl_errors: g_errors,
     });
-  
   }
 
-  g_errors = []
-  g_data = []
-  mainWindow.webContents.send("set-errors", g_errors)
+  g_errors = [];
+  g_data = [];
+  mainWindow.webContents.send("set-errors", g_errors);
   mainWindow.webContents.send("set-table-data", {
     tbl_data: g_data,
     tbl_errors: g_errors,
@@ -376,65 +502,64 @@ async function submit_to_teamwork() {
 }
 
 async function submit_time_record(rec) {
-
   const now = new Date();
   const s = parse(rec.start.value, config.date_pattern, new Date("0000-01-01"));
   const e = parse(rec.end.value, config.date_pattern, new Date("0000-01-01"));
 
-  const d = e.getTime() - s.getTime()
-  const hrs = parseInt(d / 3600000)
-  const mts = parseInt((d%3600000) / 60000)
+  const d = e.getTime() - s.getTime();
+  const hrs = parseInt(d / 3600000);
+  const mts = parseInt((d % 3600000) / 60000);
 
   const data = {
     "time-entry": {
-      "description": rec.note.value,
-      "date": format(s, 'yyyyMMdd'),
-      "time": format(s, 'HH:mm'),
-      "hours": hrs,
-      "minutes": mts
-    }
-  }
+      description: rec.note.value,
+      date: format(s, "yyyyMMdd"),
+      time: format(s, "HH:mm"),
+      hours: hrs,
+      minutes: mts,
+    },
+  };
 
   try {
-    const resp = await axios.post(`${config.base_url}/tasks/${rec.task.value}/time_entries.json`, 
-      data, {
-      params: {},
-      headers: {
-        "Content-Type": "application/json",
-      },
-      auth: {
-        username: config.token,
-        password: "X",
+    const resp = await axios.post(
+      `${config.base_url}/tasks/${rec.task.value}/time_entries.json`,
+      data,
+      {
+        params: {},
+        headers: {
+          "Content-Type": "application/json",
+        },
+        auth: {
+          username: config.token,
+          password: "X",
+        },
       }
-    });    
-  
-} catch (err) {
-  if (err.response && err.response.status === 401) {
-    g_errors.push({
-      severity: "ERROR",
-      column: null,
-      row: null,
-      message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Temawork token '${err.message}'`,
-    });
-  } else if (err.response) {
-    g_errors.push({
-      severity: "ERROR",
-      column: null,
-      row: null,
-      message: `${err.response.status} - ${err.response.statusText}: Failed posting time record to Teamwork '${err.message}'`,
-    });
-  } else {
-    g_errors.push({
-      severity: "ERROR",
-      column: null,
-      row: null,
-      message: `Failed to connect to Teamwork '${err.message}'`,
-    });
+    );
+  } catch (err) {
+    if (err.response && err.response.status === 401) {
+      g_errors.push({
+        severity: "ERROR",
+        column: null,
+        row: null,
+        message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Temawork token '${err.message}'`,
+      });
+    } else if (err.response) {
+      g_errors.push({
+        severity: "ERROR",
+        column: null,
+        row: null,
+        message: `${err.response.status} - ${err.response.statusText}: Failed posting time record to Teamwork '${err.message}'`,
+      });
+    } else {
+      g_errors.push({
+        severity: "ERROR",
+        column: null,
+        row: null,
+        message: `Failed to connect to Teamwork '${err.message}'`,
+      });
+    }
+    mainWindow.webContents.send("set-errors", g_errors);
+    return false;
   }
-  mainWindow.webContents.send("set-errors", g_errors)
-  return false;
-}
-return true;
-
-
+  return true;
 }

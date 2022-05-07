@@ -151,3 +151,54 @@ button {
   border-style: dotted;
   display: inline-block;
 }
+
+.password-dialog {
+  visibility: hidden;
+  z-index: 100;
+  background-color: lightgrey;
+  opacity: 90%;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+}
+
+.pw-dialog-open {
+  visibility: visible;
+}
+
+.password-box {
+  width: 350px;
+  height: 150px;
+  background-color: #333333;
+  position: absolute;
+  top: 30%;
+  left: calc(50% - 160px);
+  padding: 20px;
+  opacity: 100%;
+}
+
+.password-promopt-head {
+  align-items: center
+}
+
+.pwd-input-box {
+  margin: 10px;
+  text-align: center;
+}
+
+.pwd-button-box {
+  margin: 10px;
+  text-align: center;
+}
+
+.pwd-input-box .conf-text-input {
+  float: none;
+
+}
+
+.password-reset-button {
+  width: 130px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}

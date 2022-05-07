@@ -1,15 +1,17 @@
-const { default: th } = require("date-fns/esm/locale/th/index.js");
+//const { default: th } = require("date-fns/esm/locale/th/index.js");
 
 class TeamworkSync extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      appState: "UNINIT",
+      pwd_error: false,
       table: { tbl_data: [], tbl_errors: [] },
       errors: [],
       file_path: null,
       config: {
-        base_url: "https://aspiresoftware.eu.teamwork.com",
-        token: "fds",
+        base_url: "YOUR_URL",
+        token: "YOUR_TOKEN",
         winame_col: "Work Item",
         start_col: "Start",
         end_col: "End",
@@ -21,8 +23,24 @@ class TeamworkSync extends React.Component {
     };
   }
 
+  set_app_state(state) {
+    var s = this.state;
+    s.appState = state;
+    this.setState(s);
+  }
+
   handle_password(pw) {
-    window.electronAPI.receive_password(pw); //TODO
+    const r = window.electronAPI.pwd_entered(pw);
+    var s = this.state;
+    s.pwd_error = r;
+    this.setState(s);
+  }
+
+  handle_password_reset() {
+    const r = window.electronAPI.reset_password();
+    var s = this.state;
+    s.pwd_error = r;
+    this.setState(s);
   }
 
   handle_config_save() {
@@ -117,8 +135,14 @@ class TeamworkSync extends React.Component {
           config={this.state.config}
           onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
           onConfSave={(conf) => this.handle_config_save(conf)}
+          onPwdReset={() => this.handle_password_reset()}
         />
-        <PasswordDialog open={this.state.pw_dialog_open} onPasswordEnter={(pw)=>{this.handlePassword(pw)}}/>
+        <PasswordDialog
+          appState={this.state.appState}
+          onPasswordEnter={(pw) => {
+            this.handle_password(pw);
+          }}
+        />
       </div>
     );
   }
@@ -293,7 +317,7 @@ class ConfigMenu extends React.Component {
 
   render() {
     return (
-      <div className={"config-menu" + (this.state.open ? " conf-open" : "")} >
+      <div className={"config-menu" + (this.state.open ? " conf-open" : "")}>
         <div
           className={"conf-toggle" + (this.state.open ? " conf-open" : "")}
           onClick={() => {
@@ -323,6 +347,13 @@ class ConfigMenu extends React.Component {
             this.props.onConfKeyUpdate(key, value);
           }}
         />
+        <div align="right">
+          <button className="password-reset-button"
+            onClick={() => this.props.onPwdReset()}
+          >
+            Reset Password
+          </button>
+        </div>
         <ConfigOption
           text="Work Item Column"
           id="winame_col"
@@ -402,23 +433,56 @@ class ConfigOption extends React.Component {
 
 
 class PasswordDialog extends React.Component {
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      password: "",
+    };
+  }
+
+  handle_pwd_input_change(pwd) {
+    let s = this.state
+    s.password = pwd
+    this.setState(s)
+  }
+
   render() {
-    return (<div className={"password-dialog" + (this.props.open ? " pw-dialog-open" : "")}>
-      <h2 className="password-prompt-head">Application password</h2>
-      <p>This password is used to protect zour Teamwork APi key.</p>
-      <input
-          className="conf-text-input"
-          id="password"
-        />
-                <div align="center">
-          <button
-            onClick={() => this.props.onPasswordEnter()}
-            className="conf-option"
-          >
-            OK
-          </button>
+    return (
+      <div
+        className={
+          "password-dialog" +
+          (["UNINIT", "LOCKED"].includes(this.props.appState)
+            ? " pw-dialog-open"
+            : "")
+        }
+      >
+        <div className="password-box">
+          <h2 className="password-prompt-head">
+            {
+              (["UNINIT"].includes(this.props.appState)
+              ? "Enter New Password"
+              : "Enter Application Password")
+            }
+          </h2>
+          <p>This password is used to protect your Teamwork API key.</p>
+          <div className="pwd-input-box">
+            <input className="conf-text-input" 
+                      value={this.state.password}
+                      onChange={(e) => this.handle_pwd_input_change(e.target.value)}
+                      id="password" type="password" placeholder="password" />
+          </div>
+          <div className="pwd-button-box" align="center">
+            <button
+              onClick={() => this.props.onPasswordEnter(this.state.password)}
+              className="conf-option"
+            >
+              OK
+            </button>
+          </div>
         </div>
-    </div>)
+      </div>
+    );
   }
 }
 
@@ -450,4 +514,8 @@ window.electronAPI.register_set_config((event, value) => {
 
 window.electronAPI.register_set_errors((event, value) => {
   app.set_errors(value);
+});
+
+window.electronAPI.register_set_app_state((event, value) => {
+  app.set_app_state(value);
 });
