@@ -25,14 +25,14 @@ const default_config = {
 /*----------------------------------------------------------------
         APPLICATTION STATE
 ----------------------------------------------------------------*/
-var appState = "UNINIT"; //UNINIT, LOCKED, UNLOCKED
+var g_appState = "UNINIT"; //UNINIT, LOCKED, UNLOCKED
 var g_data = [];
 var g_errors = [];
 
-var mainWindow = null;
+var g_mainWindow = null;
 
-var config = null; //the decrypted version of the config
-var crypt_key = null; //the encryption key derived from the user password
+var g_config = null; //the decrypted version of the config
+var g_crypt_key = null; //the encryption key derived from the user password
 /*--------------------------------------------------------------*/
 
 /*----------------------------------------------------------------
@@ -49,19 +49,19 @@ app.whenReady().then(() => {
     return handleResetPassword();
   });
   ipcMain.handle("pwd-entered", (event, pwd) => {
-    return handle_password(pwd);
+    return handlePasswordEntry(pwd);
   });
   ipcMain.handle("app-reset", handleAppReset);
 
-  ipcMain.handle("open-file-dialog", open_file_dialog);
-  ipcMain.handle("submit-to-teamwork", submit_to_teamwork);
+  ipcMain.handle("open-file-dialog", openFileViaDialog);
+  ipcMain.handle("submit-to-teamwork", submitToTeamwork);
   ipcMain.handle("open-file-drop", (event, filename) => {
-    open_csv(filename);
+    processTimeRecordsFile(filename);
   });
   ipcMain.handle("store-config", (event, conf) => {
-    config = Object.assign(config, conf);
+    g_config = Object.assign(g_config, conf);
     storeConfigFile();
-    mainWindow.webContents.send("set-config", config);
+    g_mainWindow.webContents.send("set-config", g_config);
   });
   createWindow();
 
@@ -70,60 +70,91 @@ app.whenReady().then(() => {
   });
 
   if (loadConfFile()) {
-    appState = "LOCKED";
+    g_appState = "LOCKED";
   }
 
-  mainWindow.webContents.on("did-finish-load", () => {
-    mainWindow.webContents.send("set-app-state", appState);
+  g_mainWindow.webContents.on("did-finish-load", () => {
+    g_mainWindow.webContents.send("set-app-state", g_appState);
   });
 });
 
 /*--------------------------------------------------------------*/
 
-function handle_password(pwd) {
-  if (appState === "LOCKED") {
-    return handle_pwd_entered(pwd);
-  } else if (appState === "UNINIT") {
-    return handle_set_password(pwd);
+/**
+ * Handles password entry events from the frontend depending on application state.
+ * If the application is in LOCKED state, the password is verified and the result of
+ * the check is returned.
+ * If the application is not in UNINIT (uniitialized) state, the password is set as
+ * the new application password..
+ * @param {string} pwd The password entered by the user
+ * @returns {any} true if the password was verfied / successfully set.
+ */
+function handlePasswordEntry(pwd) {
+  if (g_appState === "LOCKED") {
+    return handlePasswordCheck(pwd);
+  } else if (g_appState === "UNINIT") {
+    return setPassword(pwd);
   }
 }
 
-function handle_set_password(pwd) {
+/**
+ * Set the password to the new value.
+ * Reinitilizes all the cryptography and re-saves the configuration with the confidential
+ * parts encrypted using the new password.
+ * The application state is the set to UNLOCKED.
+ * @param {string} pwd The new password
+ * @returns {any} true on sucvessful setting of the new password
+ */
+function setPassword(pwd) {
   var hash = nodeCrypto.createHash("sha256");
   hash.update(pwd);
-  config.pwd_hash = hash.digest();
+  g_config.pwd_hash = hash.digest();
 
   hash = nodeCrypto.createHash("sha256");
   hash.update(pwd);
   hash.update("encryptokey");
-  crypt_key = hash.digest();
+  g_crypt_key = hash.digest();
 
-  config.pwd_iv = nodeCrypto.randomBytes(16);
+  g_config.pwd_iv = nodeCrypto.randomBytes(16);
   storeConfigFile();
-  appState = "UNLOCKED";
-  mainWindow.webContents.send("set-app-state", appState);
-  mainWindow.webContents.send("set-config", config);
+  g_appState = "UNLOCKED";
+  g_mainWindow.webContents.send("set-app-state", g_appState);
+  g_mainWindow.webContents.send("set-config", g_config);
 
   return true;
 }
 
+/**
+ * UI action handler for a password reset requests.
+ * Unsets all the cryptography and sets the application state to "UNINIT"
+ * Does discard the sensitive data or not overwrite the config file.
+ * @returns {boolean} always returns true on success
+ */
 function handleResetPassword() {
-  config.pwd_hash = null;
-  config.pwd_iv = null;
-  crypt_key = null;
-  appState = "UNINIT";
-  mainWindow.webContents.send("set-app-state", appState);
+  g_config.pwd_hash = null;
+  g_config.pwd_iv = null;
+  g_crypt_key = null;
+  g_appState = "UNINIT";
+  g_mainWindow.webContents.send("set-app-state", g_appState);
   return true;
 }
 
-function handle_pwd_entered(pwd) {
+/**
+ * Check the entered password against the configuration protected by a password.
+ * If the password is correct the sensitive information in the config is decrypted
+ * using the password.
+ * On success the application state is set to "UNLOCKED", otherwise it is set to "LOCKED"
+ * @param {string} pwd The password entered by the user
+ * @returns {boolean} True if the password is correct, false otherwise
+ */
+function handlePasswordCheck(pwd) {
   var hash = nodeCrypto.createHash("sha256");
   hash.update(pwd);
   let d = hash.digest();
 
-  if (config.pwd_hash.toString("base64") !== d.toString("base64")) {
-    appState = "LOCKED";
-    mainWindow.webContents.send("set-app-state", appState);
+  if (g_config.pwd_hash.toString("base64") !== d.toString("base64")) {
+    g_appState = "LOCKED";
+    g_mainWindow.webContents.send("set-app-state", g_appState);
     return false;
   }
 
@@ -132,24 +163,24 @@ function handle_pwd_entered(pwd) {
     hash.update(pwd);
     hash.update("encryptokey");
 
-    crypt_key = hash.digest();
+    g_crypt_key = hash.digest();
 
     const decipher = nodeCrypto.createDecipheriv(
       algorithm,
-      crypt_key,
-      config.pwd_iv
+      g_crypt_key,
+      g_config.pwd_iv
     );
-    config.token = Buffer.concat([
-      decipher.update(config.token, "base64"),
+    g_config.token = Buffer.concat([
+      decipher.update(g_config.token, "base64"),
       decipher.final(),
     ]).toString();
-    appState = "UNLOCKED";
-    mainWindow.webContents.send("set-app-state", appState);
-    mainWindow.webContents.send("set-config", config);
+    g_appState = "UNLOCKED";
+    g_mainWindow.webContents.send("set-app-state", g_appState);
+    g_mainWindow.webContents.send("set-config", g_config);
     return true;
   } catch (e) {
-    appState = "LOCKED";
-    mainWindow.webContents.send("set-app-state", appState);
+    g_appState = "LOCKED";
+    g_mainWindow.webContents.send("set-app-state", g_appState);
     return false;
   }
 }
@@ -157,14 +188,22 @@ function handle_pwd_entered(pwd) {
 /**
  * Reset the confidential configuration of the application.
  * Deletes the api token and the cryptographic data (password-hash, key) from
- * memory and overwrites the configuration file
+ * memory and overwrites the configuration file. Only the non-sensitive settings
+ * are maintained in memory and in the file.
  */
 function handleAppReset() {
-  config.token = "YOUR_TOKEN";
+  g_config.token = "YOUR_TOKEN";
   handleResetPassword();
   storeConfigFile();
 }
 
+/**
+ * Loads the application configuration file from disk.
+ * If the configuration file exists and is compelte the application will go to "LOCKED" state.
+ * IF the file does not exist or if it does not contain the cryptographic
+ * password attributes the application will be "UNINIT" (uniitialized)
+ * @returns {null}
+ */
 function loadConfFile() {
   try {
     let c = JSON.parse(fs.readFileSync(userDataFile));
@@ -172,36 +211,42 @@ function loadConfFile() {
       c.pwd_iv = Buffer.from(c.pwd_iv, "base64");
       c.pwd_hash = Buffer.from(c.pwd_hash, "base64");
       c.token = Buffer.from(c.token, "base64");
-      appState = "LOCKED";
+      g_appState = "LOCKED";
     } else {
       c.token = "YOUR_TOKEN";
       c.pwd_hash = null;
       c.pwd_iv = null;
-      appState = "UNINIT";
+      g_appState = "UNINIT";
     }
-    config = c;
+    g_config = c;
     return true;
   } catch (error) {
-    appState = "UNINIT";
-    config = Object.assign({}, default_config);
+    g_appState = "UNINIT";
+    g_config = Object.assign({}, default_config);
   }
 }
 
+/**
+ * Save the configuration to disk.
+ * The sensitive parameters in the configuration will be encrypted using a key
+ * derived from the users password.
+ * @returns {any}
+ */
 function storeConfigFile() {
-  let tcnf = Object.assign({}, config);
+  let tcnf = Object.assign({}, g_config);
 
-  if (config.token && config.pwd_hash && config.pwd_iv) {
+  if (g_config.token && g_config.pwd_hash && g_config.pwd_iv) {
     const cipher = nodeCrypto.createCipheriv(
       algorithm,
-      crypt_key,
-      config.pwd_iv
+      g_crypt_key,
+      g_config.pwd_iv
     );
     tcnf.token = Buffer.concat([
-      cipher.update(config.token || ""),
+      cipher.update(g_config.token || ""),
       cipher.final(),
     ]).toString("base64");
-    tcnf.pwd_hash = Buffer(config.pwd_hash).toString("base64");
-    tcnf.pwd_iv = Buffer(config.pwd_iv).toString("base64");
+    tcnf.pwd_hash = Buffer(g_config.pwd_hash).toString("base64");
+    tcnf.pwd_iv = Buffer(g_config.pwd_iv).toString("base64");
   } else {
     tcnf.token = "YOUR_TOKEN";
     tcnf.pwd_hash = null;
@@ -211,47 +256,39 @@ function storeConfigFile() {
   fs.writeFileSync(userDataFile, JSON.stringify(tcnf));
 }
 
-const createWindow = () => {
-  mainWindow = new BrowserWindow({
-    width: 1500,
-    height: 1000,
-    title: "Teamwork Sync",
-    webPreferences: {
-      nodeIntegration: false,
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  mainWindow.loadFile("index.html");
-  mainWindow.webContents.on("did-finish-load", () => {
-    mainWindow.webContents.send("set-config", config);
-  });
-
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
-};
-
-async function open_file_dialog() {
+/**
+ * Open the OS file picker dialog to select a csv file for processing.
+ *
+ * @returns {any} Null if the dialog is cancelled, the full file path if a file is selected and processed.
+ */
+async function openFileViaDialog() {
   const { canceled, filePaths } = await dialog.showOpenDialog();
   if (canceled) {
     return;
   } else {
-    open_csv(filePaths[0]);
+    processTimeRecordsFile(filePaths[0]);
     return filePaths[0];
   }
 }
 
-function structure_raw_data(raw, tasks) {
+/**
+ * Takes the raw data from the csv file and structures it into an array of objects.
+ * Everery record is validated and errors or warnings are logged.
+ * @param {any} raw The raw csv data
+ * @param {any} tasks A dictionary of Teamwork tasks.
+ * @returns {array} The first item in the return array is the processed data, the second is an array of errors encountered.
+ */
+function processRawData(raw, tasks) {
   var rnum = 1;
   const errors = [];
-  const table_data = raw.map((r) => {
+  const tableData = raw.map((r) => {
     var t = {
       row: { value: rnum++, error: null },
-      name: { value: r[config.winame_col], error: null },
-      start: { value: r[config.start_col], error: null },
-      end: { value: r[config.end_col], error: null },
-      task: { value: r[config.task_col], error: null },
-      note: { value: r[config.notes_col], error: null },
+      name: { value: r[g_config.winame_col], error: null },
+      start: { value: r[g_config.start_col], error: null },
+      end: { value: r[g_config.end_col], error: null },
+      task: { value: r[g_config.task_col], error: null },
+      note: { value: r[g_config.notes_col], error: null },
       teamwork_customer: { value: "", error: null },
       teamwork_project: { value: "", error: null },
       teamwork_content: { value: "", error: null },
@@ -262,7 +299,11 @@ function structure_raw_data(raw, tasks) {
     }
 
     const now = new Date();
-    const s = parse(t.start.value, config.date_pattern, new Date("0000-01-01"));
+    const s = parse(
+      t.start.value,
+      g_config.date_pattern,
+      new Date("0000-01-01")
+    );
     if (!s || s == "Invalid Date") {
       t.start.error = {
         severity: "ERROR",
@@ -280,7 +321,7 @@ function structure_raw_data(raw, tasks) {
       };
     }
 
-    const e = parse(t.end.value, config.date_pattern, new Date("0000-01-01"));
+    const e = parse(t.end.value, g_config.date_pattern, new Date("0000-01-01"));
     if (!e || e == "Invalid Date") {
       t.end.error = { severity: "ERROR", message: `Invalid or empty end time` };
     } else if (e.getTime() - now.getTime() > 30 * (1000 * 60 * 60 * 24)) {
@@ -334,60 +375,71 @@ function structure_raw_data(raw, tasks) {
     return t;
   });
 
-  return [table_data, errors];
+  return [tableData, errors];
 }
 
-function check_mandatory_cols(raw) {
+/**
+ * Check the raw csv data if it contains all mandatory columns.
+ * @param {any} raw The raw csv data
+ * @returns {array} An array of errors. Empty array if everything is OK.
+ */
+function checkMandatoryColumns(raw) {
   const errs = [];
   if (raw.length <= 0) {
     errs.table = { severity: "ERROR", message: `File empty or not a csv file` };
     return errs;
   }
 
-  if (raw[0][config.start_col] == undefined) {
+  if (raw[0][g_config.start_col] == undefined) {
     errs.push({
       severity: "ERROR",
       column: "start",
       row: null,
-      message: `Start time column '${config.start_col}' missing`,
+      message: `Start time column '${g_config.start_col}' missing`,
     });
   }
-  if (raw[0][config.end_col] == undefined) {
+  if (raw[0][g_config.end_col] == undefined) {
     errs.push({
       severity: "ERROR",
       column: "end",
       row: null,
-      message: `End time column '${config.end_col}' missing`,
+      message: `End time column '${g_config.end_col}' missing`,
     });
   }
-  if (raw[0][config.task_col] == undefined) {
+  if (raw[0][g_config.task_col] == undefined) {
     errs.push({
       severity: "ERROR",
       column: "task",
       row: null,
-      message: `Teamwork task id column '${config.task_col}' missing`,
+      message: `Teamwork task id column '${g_config.task_col}' missing`,
     });
   }
-  if (raw[0][config.notes_col] == undefined) {
+  if (raw[0][g_config.notes_col] == undefined) {
     errs.push({
       severity: "WARNING",
       column: "note",
       row: null,
-      message: `Notes column '${config.notes_col}' missing`,
+      message: `Notes column '${g_config.notes_col}' missing`,
     });
   }
-  if (raw[0][config.winame_col] == undefined) {
+  if (raw[0][g_config.winame_col] == undefined) {
     errs.push({
       severity: "WARNING",
       column: "name",
       row: null,
-      message: `Work item name column '${config.winame_col}' missing`,
+      message: `Work item name column '${g_config.winame_col}' missing`,
     });
   }
   return errs;
 }
 
-function open_csv(filePath) {
+/**
+ * Open and process a csv file with time records.
+ * The table data and any errors found are pushed to the frontend.
+ * @param {any} filePath Path to the csv file.
+ * @returns {any}
+ */
+function processTimeRecordsFile(filePath) {
   var tbl_data = [];
   fs.createReadStream(filePath)
     .pipe(csv())
@@ -399,7 +451,7 @@ function open_csv(filePath) {
       tbl_data.push(r);
     })
     .on("end", () => {
-      process_csv_data(tbl_data);
+      processTimeRecordsData(tbl_data);
     })
     .on("error", (err) => {
       const e = [
@@ -410,20 +462,66 @@ function open_csv(filePath) {
           message: `Failure to read file '${err.message}'`,
         },
       ];
-      mainWindow.webContents.send("set-table-data", {
+      g_mainWindow.webContents.send("set-table-data", {
         tbl_data: null,
         tbl_errors: null,
       });
-      mainWindow.webContents.send("set-errors", e);
+      g_mainWindow.webContents.send("set-errors", e);
       console.log(err);
     });
 }
 
-async function process_csv_data(raw) {
+/**
+ * Take a set of raw recors from a csv file, validate them, parse them into
+ * the time record structure and send the data and any errors encountered to the frontend.
+ * The processed data is also store in the global apllication state as are any errors encountered.
+ * @param {any} raw The raw csv data
+ * @returns {any}
+ */
+async function processTimeRecordsData(raw) {
   var gen_errors = [];
   var valid_tasks = [];
+  valid_tasks = await getTaskList();
+
+  var tasks = {};
+  valid_tasks.forEach((task) => (tasks[task.id] = task));
+
+  const col_errs = checkMandatoryColumns(raw);
+  const [table_data, d_errs] = processRawData(raw, tasks);
+  const tbl_errors = col_errs.concat(d_errs);
+
+  g_data = table_data;
+  g_errors = g_errors.concat(tbl_errors);
+
+  g_mainWindow.webContents.send("set-table-data", {
+    tbl_data: g_data,
+    tbl_errors: tbl_errors,
+  });
+  g_mainWindow.webContents.send("set-errors", g_errors);
+}
+
+/**
+ * Retreive a list of tasks assigned to the user from Teamwork.
+ * Returns the list of tasks.
+ * Errors are logged to the global application state error list.
+ * @returns {any}
+ */
+async function getTaskList() {
+  var gen_errors = [];
   try {
-    valid_tasks = await get_task_list();
+    const resp = await axios.get(`${g_config.base_url}/tasks.json`, {
+      params: {},
+      headers: {
+        "Content-Type": "application/json",
+      },
+      auth: {
+        username: g_config.token,
+        password: "X",
+      },
+    });
+    return resp.data["todo-items"].filter((x) => {
+      return x["canLogTime"] == true;
+    });
   } catch (err) {
     if (err.response && err.response.status === 401) {
       gen_errors.push({
@@ -447,41 +545,19 @@ async function process_csv_data(raw) {
         message: `Failed to connect to Teamwork '${err.message}'`,
       });
     }
+    g_errors = g_errors.concat(gen_errors)
+    return [];
   }
-  var tasks = {};
-  valid_tasks.forEach((task) => (tasks[task.id] = task));
-
-  const col_errs = check_mandatory_cols(raw);
-  const [table_data, d_errs] = structure_raw_data(raw, tasks);
-  const tbl_errors = col_errs.concat(d_errs);
-
-  g_data = table_data;
-  g_errors = gen_errors.concat(tbl_errors);
-
-  mainWindow.webContents.send("set-table-data", {
-    tbl_data: g_data,
-    tbl_errors: tbl_errors,
-  });
-  mainWindow.webContents.send("set-errors", g_errors);
 }
 
-async function get_task_list() {
-  const resp = await axios.get(`${config.base_url}/tasks.json`, {
-    params: {},
-    headers: {
-      "Content-Type": "application/json",
-    },
-    auth: {
-      username: config.token,
-      password: "X",
-    },
-  });
-  return resp.data["todo-items"].filter((x) => {
-    return x["canLogTime"] == true;
-  });
-}
-
-async function submit_to_teamwork() {
+/**
+ * Submits all time records in the global application state to Temawork.
+ * If a record is successfully submitted it is removed from the global state.
+ * Errors encountered are logged to the global state error list.
+ * If all records are successfully submitted the global data and error lists are cleared.
+ * @returns {any}
+ */
+async function submitToTeamwork() {
   if (
     g_errors.filter((x) => {
       return x.severity == "ERROR";
@@ -495,7 +571,7 @@ async function submit_to_teamwork() {
         message: `Can't send to Teamwork while there are 'ERROR' entries!`,
       },
     ];
-    mainWindow.webContents.send("set-errors", e.concat(g_errors));
+    g_mainWindow.webContents.send("set-errors", e.concat(g_errors));
     return;
   }
 
@@ -503,7 +579,7 @@ async function submit_to_teamwork() {
 
   while (g_data.length > 0) {
     const row = g_data.pop();
-    if (!(await submit_time_record(row))) {
+    if (!(await submitTimeRecord(row))) {
       g_errors.push({
         severity: "ERROR",
         column: null,
@@ -511,10 +587,10 @@ async function submit_to_teamwork() {
         message: `Stopping submission to Teamwork at ${row.row.value}. Failure: '${err.message}'`,
       });
       g_data.push(row);
-      mainWindow.webContents.send("set-errors", g_errors);
+      g_mainWindow.webContents.send("set-errors", g_errors);
       return;
     }
-    mainWindow.webContents.send("set-table-data", {
+    g_mainWindow.webContents.send("set-table-data", {
       tbl_data: g_data,
       tbl_errors: g_errors,
     });
@@ -522,17 +598,27 @@ async function submit_to_teamwork() {
 
   g_errors = [];
   g_data = [];
-  mainWindow.webContents.send("set-errors", g_errors);
-  mainWindow.webContents.send("set-table-data", {
+  g_mainWindow.webContents.send("set-errors", g_errors);
+  g_mainWindow.webContents.send("set-table-data", {
     tbl_data: g_data,
     tbl_errors: g_errors,
   });
 }
 
-async function submit_time_record(rec) {
+/**
+ * Submit a single time record to Teamwork.
+ * Errors are logged to the global error list.
+ * @param {any} rec The time record to submit
+ * @returns {any} true if successful, false on any failure
+ */
+async function submitTimeRecord(rec) {
   const now = new Date();
-  const s = parse(rec.start.value, config.date_pattern, new Date("0000-01-01"));
-  const e = parse(rec.end.value, config.date_pattern, new Date("0000-01-01"));
+  const s = parse(
+    rec.start.value,
+    g_config.date_pattern,
+    new Date("0000-01-01")
+  );
+  const e = parse(rec.end.value, g_config.date_pattern, new Date("0000-01-01"));
 
   const d = e.getTime() - s.getTime();
   const hrs = parseInt(d / 3600000);
@@ -550,7 +636,7 @@ async function submit_time_record(rec) {
 
   try {
     const resp = await axios.post(
-      `${config.base_url}/tasks/${rec.task.value}/time_entries.json`,
+      `${g_config.base_url}/tasks/${rec.task.value}/time_entries.json`,
       data,
       {
         params: {},
@@ -558,7 +644,7 @@ async function submit_time_record(rec) {
           "Content-Type": "application/json",
         },
         auth: {
-          username: config.token,
+          username: g_config.token,
           password: "X",
         },
       }
@@ -586,8 +672,33 @@ async function submit_time_record(rec) {
         message: `Failed to connect to Teamwork '${err.message}'`,
       });
     }
-    mainWindow.webContents.send("set-errors", g_errors);
+    g_mainWindow.webContents.send("set-errors", g_errors);
     return false;
   }
   return true;
 }
+
+/**
+ * Create the main window and intialize it's basic data structures (configuration).
+ *
+ * @returns {any}
+ */
+const createWindow = () => {
+  g_mainWindow = new BrowserWindow({
+    width: 1500,
+    height: 1000,
+    title: "Teamwork Sync",
+    webPreferences: {
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  g_mainWindow.loadFile("index.html");
+  g_mainWindow.webContents.on("did-finish-load", () => {
+    g_mainWindow.webContents.send("set-config", g_config);
+  });
+
+  // Open the DevTools.
+  g_mainWindow.webContents.openDevTools();
+};

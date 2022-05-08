@@ -159,8 +159,7 @@ button {
 .password-dialog {
   visibility: hidden;
   z-index: 100;
-  background-color: lightgrey;
-  opacity: 90%;
+  background: rgba(211, 211, 211, 0.8);
   height: 100%;
   width: 100%;
   position: absolute;
@@ -179,7 +178,6 @@ button {
   top: 30%;
   left: calc(50% - 160px);
   padding: 20px;
-  opacity: 100%;
 }
 
 .password-promopt-head {

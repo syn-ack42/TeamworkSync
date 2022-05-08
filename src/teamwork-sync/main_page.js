@@ -1,5 +1,3 @@
-//const { default: th } = require("date-fns/esm/locale/th/index.js");
-
 class TeamworkSync extends React.Component {
   constructor(props) {
     super(props);
@@ -23,32 +21,32 @@ class TeamworkSync extends React.Component {
     };
   }
 
-  set_app_state(state) {
+  setAppState(state) {
     var s = this.state;
     s.appState = state;
     this.setState(s);
   }
 
-  async handle_password(pw) {
-    const r = await window.electronAPI.pwd_entered(pw);
+  async handlePassword(pw) {
+    const r = await window.electronAPI.passwordEntered(pw);
     var s = this.state;
     s.pwdError = !r;
     this.setState(s);
   }
 
-  async handle_password_reset() {
-    const r = await window.electronAPI.reset_password();
+  async handlePasswordReset() {
+    const r = await window.electronAPI.resetPassword();
     var s = this.state;
     s.pwdError = !r;
     this.setState(s);
   }
 
-  handle_config_save() {
-    window.electronAPI.store_config(this.state.config);
+  handleConfigSave() {
+    window.electronAPI.storeConfig(this.state.config);
   }
 
-  handle_submit() {
-    window.electronAPI.submit_to_teamwork();
+  handleSubmitToTeamwork() {
+    window.electronAPI.submitToTeamwork();
   }
 
 /**
@@ -61,32 +59,32 @@ class TeamworkSync extends React.Component {
     this.setState(s);
   }
 
-  update_conf_key(key, value) {
+  updateConfKey(key, value) {
     var s = this.state;
     s.config[key] = value;
     this.setState(s);
   }
 
-  update_config(conf) {
+  updateConfig(conf) {
     var s = this.state;
     s.config = conf;
     this.setState(s);
   }
 
-  set_table(data) {
+  setTable(data) {
     var s = this.state;
     s.table = data || { tbl_data: [], tbl_errors: [] };
     this.setState(s);
   }
 
-  set_errors(data) {
+  setErrors(data) {
     var s = this.state;
     s.errors = data || [];
     this.setState(s);
   }
 
-  async load_csv() {
-    const filePath = await window.electronAPI.open_file_dialog();
+  async loadCSV() {
+    const filePath = await window.electronAPI.openFileDialog();
     var s = this.state;
     s.file_path = filePath || null;
     this.setState(s);
@@ -104,7 +102,7 @@ class TeamworkSync extends React.Component {
           <button
             type="button"
             onClick={() => {
-              this.load_csv();
+              this.loadCSV();
             }}
           >
             Open CSV
@@ -135,7 +133,7 @@ class TeamworkSync extends React.Component {
               }).length > 0 || this.state.table.tbl_data.length <= 0
             }
             onClick={() => {
-              this.handle_submit();
+              this.handleSubmitToTeamwork();
             }}
           >
             Submit to Teamwork
@@ -143,15 +141,15 @@ class TeamworkSync extends React.Component {
         </div>
         <ConfigMenu
           config={this.state.config}
-          onConfKeyUpdate={(key, value) => this.update_conf_key(key, value)}
-          onConfSave={(conf) => this.handle_config_save(conf)}
-          onPwdReset={() => this.handle_password_reset()}
+          onConfKeyUpdate={(key, value) => this.updateConfKey(key, value)}
+          onConfSave={(conf) => this.handleConfigSave(conf)}
+          onPwdReset={() => this.handlePasswordReset()}
         />
         <PasswordDialog
           appState={this.state.appState}
           pwdError={this.state.pwdError}
           onPasswordEnter={(pw) => {
-            this.handle_password(pw);
+            this.handlePassword(pw);
           }}
           onPasswordDelete={() => {
             this.handleAppReset();
@@ -454,7 +452,7 @@ class PasswordDialog extends React.Component {
     };
   }
 
-  handle_pwd_input_change(pwd) {
+  handlePwdInputChange(pwd) {
     let s = this.state;
     s.password = pwd;
     this.setState(s);
@@ -493,7 +491,7 @@ class PasswordDialog extends React.Component {
                 "conf-text-input" + (this.props.pwdError ? " error" : "")
               }
               value={this.state.password}
-              onChange={(e) => this.handle_pwd_input_change(e.target.value)}
+              onChange={(e) => this.handlePwdInputChange(e.target.value)}
               id="password"
               type="password"
               placeholder="password"
@@ -537,7 +535,7 @@ document.addEventListener("drop", (event) => {
   event.stopPropagation();
 
   if (event.dataTransfer.files.length > 0) {
-    window.electronAPI.open_file_drop(event.dataTransfer.files[0].path);
+    window.electronAPI.openFileDrop(event.dataTransfer.files[0].path);
   }
 });
 
@@ -546,18 +544,18 @@ document.addEventListener("dragover", (e) => {
   e.stopPropagation();
 });
 
-window.electronAPI.register_set_table((event, value) => {
-  app.set_table(value);
+window.electronAPI.registerSetTable((event, value) => {
+  app.setTable(value);
 });
 
-window.electronAPI.register_set_config((event, value) => {
-  app.update_config(value);
+window.electronAPI.registerSetConfig((event, value) => {
+  app.updateConfig(value);
 });
 
-window.electronAPI.register_set_errors((event, value) => {
-  app.set_errors(value);
+window.electronAPI.registerSetErrors((event, value) => {
+  app.setErrors(value);
 });
 
-window.electronAPI.register_set_app_state((event, value) => {
-  app.set_app_state(value);
+window.electronAPI.registerSetAppState((event, value) => {
+  app.setAppState(value);
 });
