@@ -5,7 +5,7 @@ class TeamworkSync extends React.Component {
     super(props);
     this.state = {
       appState: "UNINIT",
-      pwd_error: false,
+      pwdError: false,
       table: { tbl_data: [], tbl_errors: [] },
       errors: [],
       file_path: null,
@@ -29,17 +29,17 @@ class TeamworkSync extends React.Component {
     this.setState(s);
   }
 
-  handle_password(pw) {
-    const r = window.electronAPI.pwd_entered(pw);
+  async handle_password(pw) {
+    const r = await window.electronAPI.pwd_entered(pw);
     var s = this.state;
-    s.pwd_error = r;
+    s.pwdError = !r;
     this.setState(s);
   }
 
-  handle_password_reset() {
-    const r = window.electronAPI.reset_password();
+  async handle_password_reset() {
+    const r = await window.electronAPI.reset_password();
     var s = this.state;
-    s.pwd_error = r;
+    s.pwdError = !r;
     this.setState(s);
   }
 
@@ -49,6 +49,16 @@ class TeamworkSync extends React.Component {
 
   handle_submit() {
     window.electronAPI.submit_to_teamwork();
+  }
+
+/**
+ * UI action handler for application reset. 
+ */ 
+ async handleAppReset() {
+    await window.electronAPI.appReset();
+    var s = this.state;
+    s.pwdError = false;
+    this.setState(s);
   }
 
   update_conf_key(key, value) {
@@ -139,8 +149,12 @@ class TeamworkSync extends React.Component {
         />
         <PasswordDialog
           appState={this.state.appState}
+          pwdError={this.state.pwdError}
           onPasswordEnter={(pw) => {
             this.handle_password(pw);
+          }}
+          onPasswordDelete={() => {
+            this.handleAppReset();
           }}
         />
       </div>
@@ -348,7 +362,8 @@ class ConfigMenu extends React.Component {
           }}
         />
         <div align="right">
-          <button className="password-reset-button"
+          <button
+            className="password-reset-button"
             onClick={() => this.props.onPwdReset()}
           >
             Reset Password
@@ -431,9 +446,7 @@ class ConfigOption extends React.Component {
   }
 }
 
-
 class PasswordDialog extends React.Component {
-
   constructor(props) {
     super(props);
     this.state = {
@@ -442,9 +455,19 @@ class PasswordDialog extends React.Component {
   }
 
   handle_pwd_input_change(pwd) {
-    let s = this.state
-    s.password = pwd
-    this.setState(s)
+    let s = this.state;
+    s.password = pwd;
+    this.setState(s);
+  }
+
+  passwordDeleteClicked() {
+    if (
+      confirm(
+        "You can reset your passwort, but you will have to re-enter your api token afterwards. OK?"
+      ) == true
+    ) {
+      this.props.onPasswordDelete();
+    }
   }
 
   render() {
@@ -459,18 +482,22 @@ class PasswordDialog extends React.Component {
       >
         <div className="password-box">
           <h2 className="password-prompt-head">
-            {
-              (["UNINIT"].includes(this.props.appState)
+            {["UNINIT"].includes(this.props.appState)
               ? "Enter New Password"
-              : "Enter Application Password")
-            }
+              : "Enter Application Password"}
           </h2>
           <p>This password is used to protect your Teamwork API key.</p>
           <div className="pwd-input-box">
-            <input className="conf-text-input" 
-                      value={this.state.password}
-                      onChange={(e) => this.handle_pwd_input_change(e.target.value)}
-                      id="password" type="password" placeholder="password" />
+            <input
+              className={
+                "conf-text-input" + (this.props.pwdError ? " error" : "")
+              }
+              value={this.state.password}
+              onChange={(e) => this.handle_pwd_input_change(e.target.value)}
+              id="password"
+              type="password"
+              placeholder="password"
+            />
           </div>
           <div className="pwd-button-box" align="center">
             <button
@@ -479,6 +506,21 @@ class PasswordDialog extends React.Component {
             >
               OK
             </button>
+          </div>
+          <div
+            className={
+              "pwd-delete-box" + (this.props.pwdError ? "" : " hidden")
+            }
+            align="center"
+          >
+            <a
+              href="#"
+              alt="Reset the application. You will have re-enter your api token."
+              className="pwd-delete-link"
+              onClick={() => this.passwordDeleteClicked()}
+            >
+              Lost Password?
+            </a>
           </div>
         </div>
       </div>

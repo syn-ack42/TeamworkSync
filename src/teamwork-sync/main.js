@@ -46,11 +46,12 @@ app.on("window-all-closed", () => {
 
 app.whenReady().then(() => {
   ipcMain.handle("reset-password", (event) => {
-    return handle_reset_password();
+    return handleResetPassword();
   });
   ipcMain.handle("pwd-entered", (event, pwd) => {
     return handle_password(pwd);
   });
+  ipcMain.handle("app-reset", handleAppReset);
 
   ipcMain.handle("open-file-dialog", open_file_dialog);
   ipcMain.handle("submit-to-teamwork", submit_to_teamwork);
@@ -72,19 +73,18 @@ app.whenReady().then(() => {
     appState = "LOCKED";
   }
 
-  mainWindow.webContents.on('did-finish-load', () => {
+  mainWindow.webContents.on("did-finish-load", () => {
     mainWindow.webContents.send("set-app-state", appState);
-  })
+  });
 });
 
 /*--------------------------------------------------------------*/
 
 function handle_password(pwd) {
   if (appState === "LOCKED") {
-    return handle_pwd_entered(pwd)
-  }
-  else if (appState === "UNINIT") {
-    return handle_set_password(pwd)
+    return handle_pwd_entered(pwd);
+  } else if (appState === "UNINIT") {
+    return handle_set_password(pwd);
   }
 }
 
@@ -107,19 +107,19 @@ function handle_set_password(pwd) {
   return true;
 }
 
-function handle_reset_password() {
+function handleResetPassword() {
   config.pwd_hash = null;
   config.pwd_iv = null;
   crypt_key = null;
   appState = "UNINIT";
   mainWindow.webContents.send("set-app-state", appState);
-  return true
+  return true;
 }
 
 function handle_pwd_entered(pwd) {
   var hash = nodeCrypto.createHash("sha256");
   hash.update(pwd);
-  let d = hash.digest()
+  let d = hash.digest();
 
   if (config.pwd_hash.toString("base64") !== d.toString("base64")) {
     appState = "LOCKED";
@@ -142,7 +142,7 @@ function handle_pwd_entered(pwd) {
     config.token = Buffer.concat([
       decipher.update(config.token, "base64"),
       decipher.final(),
-    ]).toString()
+    ]).toString();
     appState = "UNLOCKED";
     mainWindow.webContents.send("set-app-state", appState);
     mainWindow.webContents.send("set-config", config);
@@ -154,14 +154,32 @@ function handle_pwd_entered(pwd) {
   }
 }
 
+/**
+ * Reset the confidential configuration of the application.
+ * Deletes the api token and the cryptographic data (password-hash, key) from
+ * memory and overwrites the configuration file
+ */
+function handleAppReset() {
+  config.token = "YOUR_TOKEN";
+  handleResetPassword();
+  storeConfigFile();
+}
+
 function loadConfFile() {
   try {
     let c = JSON.parse(fs.readFileSync(userDataFile));
-    c.pwd_iv = Buffer.from(c.pwd_iv, "base64");
-    c.pwd_hash = Buffer.from(c.pwd_hash, "base64");
-    c.token = Buffer.from(c.token, "base64");
+    if (c.token && c.pwd_hash && c.pwd_iv) {
+      c.pwd_iv = Buffer.from(c.pwd_iv, "base64");
+      c.pwd_hash = Buffer.from(c.pwd_hash, "base64");
+      c.token = Buffer.from(c.token, "base64");
+      appState = "LOCKED";
+    } else {
+      c.token = "YOUR_TOKEN";
+      c.pwd_hash = null;
+      c.pwd_iv = null;
+      appState = "UNINIT";
+    }
     config = c;
-    appState = "LOCKED";
     return true;
   } catch (error) {
     appState = "UNINIT";
@@ -172,13 +190,23 @@ function loadConfFile() {
 function storeConfigFile() {
   let tcnf = Object.assign({}, config);
 
-  const cipher = nodeCrypto.createCipheriv(algorithm, crypt_key, config.pwd_iv);
-  tcnf.token = Buffer.concat([
-    cipher.update(config.token || ""),
-    cipher.final(),
-  ]).toString("base64")
-  tcnf.pwd_hash = Buffer(config.pwd_hash).toString("base64")
-  tcnf.pwd_iv = Buffer(config.pwd_iv).toString("base64")
+  if (config.token && config.pwd_hash && config.pwd_iv) {
+    const cipher = nodeCrypto.createCipheriv(
+      algorithm,
+      crypt_key,
+      config.pwd_iv
+    );
+    tcnf.token = Buffer.concat([
+      cipher.update(config.token || ""),
+      cipher.final(),
+    ]).toString("base64");
+    tcnf.pwd_hash = Buffer(config.pwd_hash).toString("base64");
+    tcnf.pwd_iv = Buffer(config.pwd_iv).toString("base64");
+  } else {
+    tcnf.token = "YOUR_TOKEN";
+    tcnf.pwd_hash = null;
+    tcnf.pwd_iv = null;
+  }
 
   fs.writeFileSync(userDataFile, JSON.stringify(tcnf));
 }

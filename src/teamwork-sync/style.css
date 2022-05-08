@@ -70,6 +70,10 @@
   background-color: #969600;
 }
 
+.hidden {
+  visibility: hidden;
+}
+
 #root {
   background-color: #333333;
   font-family: monospace;
@@ -169,7 +173,7 @@ button {
 
 .password-box {
   width: 350px;
-  height: 150px;
+  height: fit-content;
   background-color: #333333;
   position: absolute;
   top: 30%;
@@ -201,4 +205,8 @@ button {
   width: 130px;
   margin-top: 10px;
   margin-bottom: 5px;
+}
+
+.pwd-delete-link {
+  color: lightgray;
 }

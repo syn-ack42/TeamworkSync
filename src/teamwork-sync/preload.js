@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
   register_set_app_state: (callback) => ipcRenderer.on('set-app-state', callback),
+  appReset: () => ipcRenderer.invoke('app-reset'),
   pwd_entered: (pwd) => ipcRenderer.invoke('pwd-entered', pwd),
   reset_password: () => ipcRenderer.invoke('reset-password'),
   open_file_dialog: () => ipcRenderer.invoke('open-file-dialog'),
