@@ -493,10 +493,7 @@ async function processTimeRecordsData(raw) {
   g_data = table_data;
   g_errors = g_errors.concat(tbl_errors);
 
-  g_mainWindow.webContents.send("set-table-data", {
-    tbl_data: g_data,
-    tbl_errors: tbl_errors,
-  });
+  g_mainWindow.webContents.send("set-table-data", g_data);
   g_mainWindow.webContents.send("set-errors", g_errors);
 }
 
@@ -590,19 +587,13 @@ async function submitToTeamwork() {
       g_mainWindow.webContents.send("set-errors", g_errors);
       return;
     }
-    g_mainWindow.webContents.send("set-table-data", {
-      tbl_data: g_data,
-      tbl_errors: g_errors,
-    });
+    g_mainWindow.webContents.send("set-table-data", g_data);
   }
 
   g_errors = [];
   g_data = [];
   g_mainWindow.webContents.send("set-errors", g_errors);
-  g_mainWindow.webContents.send("set-table-data", {
-    tbl_data: g_data,
-    tbl_errors: g_errors,
-  });
+  g_mainWindow.webContents.send("set-table-data", g_data);
 }
 
 /**

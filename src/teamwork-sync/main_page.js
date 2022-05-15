@@ -1,13 +1,17 @@
+/** The main GUI class
+ * Note that all application state is hande\led in this class.
+ */
 class TeamworkSync extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       appState: "UNINIT",
-      pwdError: false,
-      table: { tbl_data: [], tbl_errors: [] },
-      errors: [],
-      file_path: null,
+      pwdError: false, //indicate a password error
+      table: [], //the table data
+      errors: [], //all errors
+      filePath: null, //the path of the csv file (once openend)
       config: {
+        //data in the configuration section
         base_url: "YOUR_URL",
         token: "YOUR_TOKEN",
         winame_col: "Work Item",
@@ -17,7 +21,7 @@ class TeamworkSync extends React.Component {
         notes_col: "Notes",
         date_pattern: "dd.MM.yyyy HH:mm:ss",
       },
-      pw_dialog_open: true,
+      pwDialogOpen: true, //if true the password overlay is open and all ui elements blocked
     };
   }
 
@@ -27,6 +31,11 @@ class TeamworkSync extends React.Component {
     this.setState(s);
   }
 
+  /**
+   * Handle password entry (all logic is in the backend)
+   * @param {any} pw
+   * @returns {any}
+   */
   async handlePassword(pw) {
     const r = await window.electronAPI.passwordEntered(pw);
     var s = this.state;
@@ -49,10 +58,10 @@ class TeamworkSync extends React.Component {
     window.electronAPI.submitToTeamwork();
   }
 
-/**
- * UI action handler for application reset. 
- */ 
- async handleAppReset() {
+  /**
+   * UI action handler for application reset.
+   */
+  async handleAppReset() {
     await window.electronAPI.appReset();
     var s = this.state;
     s.pwdError = false;
@@ -73,7 +82,7 @@ class TeamworkSync extends React.Component {
 
   setTable(data) {
     var s = this.state;
-    s.table = data || { tbl_data: [], tbl_errors: [] };
+    s.table = data || [];
     this.setState(s);
   }
 
@@ -86,7 +95,7 @@ class TeamworkSync extends React.Component {
   async loadCSV() {
     const filePath = await window.electronAPI.openFileDialog();
     var s = this.state;
-    s.file_path = filePath || null;
+    s.filePath = filePath || null;
     this.setState(s);
   }
 
@@ -108,7 +117,7 @@ class TeamworkSync extends React.Component {
             Open CSV
           </button>
           <div className="filename">
-            Selected file: {this.state.file_path || ""}
+            Selected file: {this.state.filePath || ""}
           </div>
         </div>
         <div className="app-section">
@@ -117,7 +126,7 @@ class TeamworkSync extends React.Component {
             Review your data - you will only be able to post it if there are no
             ERRORs.
           </p>
-          <DataTable table={this.state.table} />
+          <DataTable table={this.state.table} errors={this.state.errors} />
           <ErrorList errors={this.state.errors} />
         </div>
         <div className="app-section">
@@ -130,7 +139,7 @@ class TeamworkSync extends React.Component {
             disabled={
               this.state.errors.filter((x) => {
                 return x.severity == "ERROR";
-              }).length > 0 || this.state.table.tbl_data.length <= 0
+              }).length > 0 || this.state.table.length <= 0
             }
             onClick={() => {
               this.handleSubmitToTeamwork();
@@ -169,7 +178,7 @@ class DataTable extends React.Component {
             <tr className="data-head">
               <DataHeadCell
                 text="Row#"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "row" || x.column === null)
                   );
@@ -177,7 +186,7 @@ class DataTable extends React.Component {
               />
               <DataHeadCell
                 text="Work Item Name"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "name" || x.column === null)
                   );
@@ -185,7 +194,7 @@ class DataTable extends React.Component {
               />
               <DataHeadCell
                 text="Start"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "start" || x.column === null)
                   );
@@ -193,7 +202,7 @@ class DataTable extends React.Component {
               />
               <DataHeadCell
                 text="End"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "end" || x.column === null)
                   );
@@ -201,7 +210,7 @@ class DataTable extends React.Component {
               />
               <DataHeadCell
                 text="Notes"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "note" || x.column === null)
                   );
@@ -209,7 +218,7 @@ class DataTable extends React.Component {
               />
               <DataHeadCell
                 text="Task ID"
-                error={this.props.table.tbl_errors.find((x) => {
+                error={this.props.errors.find((x) => {
                   return (
                     x.row === null && (x.column == "task" || x.column === null)
                   );
@@ -221,7 +230,7 @@ class DataTable extends React.Component {
             </tr>
           </thead>
           <tbody>
-            {this.props.table.tbl_data.map((row) => (
+            {this.props.table.map((row) => (
               <tr key={row.row.value}>
                 <DataTableCell cell_data={row.row} />
                 <DataTableCell cell_data={row.name} />
@@ -492,6 +501,11 @@ class PasswordDialog extends React.Component {
               }
               value={this.state.password}
               onChange={(e) => this.handlePwdInputChange(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.charCode == 13) {
+                  this.props.onPasswordEnter(this.state.password);
+                }
+              }}
               id="password"
               type="password"
               placeholder="password"
@@ -530,6 +544,9 @@ const container = document.getElementById("root");
 
 const app = ReactDOM.render(<TeamworkSync />, container);
 
+/**
+ * Droping a file sends it to the backend for processing
+ */
 document.addEventListener("drop", (event) => {
   event.preventDefault();
   event.stopPropagation();
