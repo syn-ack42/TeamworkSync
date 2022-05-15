@@ -1,0 +1,4 @@
+.vscode/
+src/teamwork-sync/node_modules/
+src/teamwork-sync/out/teamwork-sync-win32-x64/chrome_100_percent.pak
+src/teamwork-sync/out/
