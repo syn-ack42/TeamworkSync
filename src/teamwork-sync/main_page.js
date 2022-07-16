@@ -18,6 +18,7 @@ class TeamworkSync extends React.Component {
         start_col: "Start",
         end_col: "End",
         task_col: "TeamworkTask",
+        billable_col: "Billable",
         notes_col: "Notes",
         date_pattern: "dd.MM.yyyy HH:mm:ss",
       },
@@ -224,6 +225,14 @@ class DataTable extends React.Component {
                   );
                 })}
               />
+              <DataHeadCell
+                text="Billable"
+                error={this.props.errors.find((x) => {
+                  return (
+                    x.row === null && (x.column == "billable" || x.column === null)
+                  );
+                })}
+              />
               <DataHeadCell text="Customer" error={false} />
               <DataHeadCell text="Project" error={false} />
               <DataHeadCell text="Content" error={false} />
@@ -238,6 +247,7 @@ class DataTable extends React.Component {
                 <DataTableCell cell_data={row.end} />
                 <DataTableCell cell_data={row.note} />
                 <DataTableCell cell_data={row.task} />
+                <DataTableCell cell_data={row.billable} />
                 <DataTableCell cell_data={row.teamwork_customer} />
                 <DataTableCell cell_data={row.teamwork_project} />
                 <DataTableCell cell_data={row.teamwork_content} />
@@ -404,6 +414,14 @@ class ConfigMenu extends React.Component {
           text="Task ID Column"
           id="task_col"
           value={this.props.config.task_col}
+          onChange={(key, value) => {
+            this.props.onConfKeyUpdate(key, value);
+          }}
+        />
+        <ConfigOption
+          text="Billable Column"
+          id="billable_col"
+          value={this.props.config.billable_col}
           onChange={(key, value) => {
             this.props.onConfKeyUpdate(key, value);
           }}

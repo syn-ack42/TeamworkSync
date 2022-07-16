@@ -19,6 +19,7 @@ const default_config = {
   end_col: "End",
   task_col: "TeamworkTask",
   notes_col: "Notes",
+  billable_col: "Billable",
   date_pattern: "dd.MM.yyyy HH:mm:ss",
 };
 
@@ -289,6 +290,7 @@ function processRawData(raw, tasks) {
       end: { value: r[g_config.end_col], error: null },
       task: { value: r[g_config.task_col], error: null },
       note: { value: r[g_config.notes_col], error: null },
+      billable: { value: r[g_config.billable_col], error: null },
       teamwork_customer: { value: "", error: null },
       teamwork_project: { value: "", error: null },
       teamwork_content: { value: "", error: null },
@@ -422,6 +424,15 @@ function checkMandatoryColumns(raw) {
       message: `Notes column '${g_config.notes_col}' missing`,
     });
   }
+  if (raw[0][g_config.billable_col] == undefined) {
+    errs.push({
+      severity: "WARNING",
+      column: "billable",
+      row: null,
+      message: `Billable column '${g_config.billable_col}' missing`,
+    });
+  }
+  
   if (raw[0][g_config.winame_col] == undefined) {
     errs.push({
       severity: "WARNING",
@@ -440,6 +451,11 @@ function checkMandatoryColumns(raw) {
  * @returns {any}
  */
 function processTimeRecordsFile(filePath) {
+  //reset the data and errors
+  g_errors = [];
+  g_data = [];
+
+
   var tbl_data = [];
   fs.createReadStream(filePath)
     .pipe(csv())
@@ -479,7 +495,6 @@ function processTimeRecordsFile(filePath) {
  * @returns {any}
  */
 async function processTimeRecordsData(raw) {
-  var gen_errors = [];
   var valid_tasks = [];
   valid_tasks = await getTaskList();
 
@@ -621,9 +636,13 @@ async function submitTimeRecord(rec) {
       date: format(s, "yyyyMMdd"),
       time: format(s, "HH:mm"),
       hours: hrs,
-      minutes: mts,
+      minutes: mts    
     },
   };
+
+  if (rec.billable === 0 || rec.billable === 1) {
+    data["time-entry"]["isbillable"] = rec.billable === 1
+  }
 
   try {
     const resp = await axios.post(
@@ -690,6 +709,6 @@ const createWindow = () => {
     g_mainWindow.webContents.send("set-config", g_config);
   });
 
-  // Open the DevTools.
-  g_mainWindow.webContents.openDevTools();
+  // Open the DevTools for debugging
+  //g_mainWindow.webContents.openDevTools();
 };
