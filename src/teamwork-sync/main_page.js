@@ -338,17 +338,13 @@ class ConfigMenu extends React.Component {
 
   render() {
     return (
-      <div className={"config-menu" + (this.state.open ? " conf-open" : "")}>
+      <div className={"config-menu" + (this.state.open ? " conf-open" : " conf-closed")}>
         <div
-          className={"conf-toggle" + (this.state.open ? " conf-open" : "")}
+          className={"conf-toggle" + (this.state.open ? " conf-open" : " conf-closed")}
           onClick={() => {
             this.toggleOpen();
           }}
-        >
-          <div className="bar1"></div>
-          <div className="bar2"></div>
-          <div className="bar3"></div>
-        </div>
+        ></div>
         <h2 className={"conf-header" + (this.state.open ? " conf-open" : "")}>
           <center>Configuration</center>
         </h2>
@@ -368,7 +364,7 @@ class ConfigMenu extends React.Component {
             this.props.onConfKeyUpdate(key, value);
           }}
         />
-        <div align="right">
+        <div align="right" className="conf-option">
           <button
             className="password-reset-button"
             onClick={() => this.props.onPwdReset()}
@@ -424,7 +420,7 @@ class ConfigMenu extends React.Component {
             this.props.onConfKeyUpdate(key, value);
           }}
         />
-        <div align="center">
+        <div align="center" className="conf-option">
           <button
             onClick={() => this.props.onConfSave()}
             className="conf-option"
