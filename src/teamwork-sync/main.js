@@ -691,5 +691,5 @@ const createWindow = () => {
   });
 
   // Open the DevTools.
-  g_mainWindow.webContents.openDevTools();
+  //g_mainWindow.webContents.openDevTools();
 };
