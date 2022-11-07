@@ -665,14 +665,14 @@ async function submitTimeRecord(rec) {
         severity: "ERROR",
         column: null,
         row: null,
-        message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Temawork token '${err.message}'`,
+        message: `${err.response.status} - ${err.response.statusText}: Unauthorized please check Teamwork token '${err.data}'`,
       });
     } else if (err.response) {
       g_errors.push({
         severity: "ERROR",
         column: null,
         row: null,
-        message: `${err.response.status} - ${err.response.statusText}: Failed posting time record to Teamwork '${err.message}'`,
+        message: `${err.response.status} - ${err.response.statusText}: Failed posting time record to Teamwork '${err.data}'`,
       });
     } else {
       g_errors.push({
